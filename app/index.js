@@ -58,21 +58,7 @@ const p2pserver = new P2pServer(blockchain, transactionPool, wallet);
 //starts the p2pserver
 p2pserver.listen(); 
 
-/*if(HTTP_PORT%10 == 1) {
 
-
-    wallet.createTransaction("0", VALIDATOR_FEE, "VALIDATOR_FEE", blockchain, transactionPool);
-    wallet.createTransaction("0", 5, "STAKE", blockchain, transactionPool);
-    wallet.createTransaction("0", 10, "STAKE", blockchain, transactionPool);
-    console.log(blockchain.chain);
-    let block = blockchain.createBlock(transactionPool.transactions, wallet);   
-    console.log("initial block of first staker created ", block);
-    blockchain.isValidBlock(block);
-    p2pserver.broadcastBlock(block);
-
-
-}*/
- 
 
 
 
@@ -116,17 +102,23 @@ app.get('/transactions', (req,res) => {
 app.post("/transact", (req, res) => {
 
     const {to,amount,type} = req.body;
+    
     const transaction = wallet.createTransaction(
         to, amount, type, blockchain, transactionPool
     );
     if(transaction != undefined){    //meaning that transation has actually been created, meaning that the amount is within balance value
+        
         console.log("created and added transaction to local pool");
         p2pserver.broadcastTransaction(transaction); //broadcast the newly made transaction to all the local transaction pools of the peers
         p2pserver.createBlockIfLeaderAndIfThreshholdReached();
+    
     }else {
+    
         console.log("transaction is not created nor broadcasted\n-----------------------------------------------------------------");
+    
     }
     res.redirect("/transactions");
+
 });
 
 

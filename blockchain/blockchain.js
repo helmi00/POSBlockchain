@@ -7,6 +7,7 @@ const Wallet = require('../wallet/wallet');
 const TRANSACTION_TYPE = {
     transaction: "TRANSACTION",
     stake: "STAKE",
+    unstake: "UNSTAKE",
     validator_fee: "VALIDATOR_FEE"
 };
 
@@ -80,18 +81,6 @@ class Blockchain{
         
         } else{ 
             console.log("block is not valid by this node");
-            
-            /*console.log("first condition: correct lasthash:", block.lastHash === lastBlock.hash);
-            console.log("    block to be added last hash: " ,block.lastHash);
-            console.log("    last block's hash", lastBlock.hash);
-            console.log("second condition: correct hash creation:", block.hash === Block.blockHash(block));
-            console.log("third condition: bloc verified:", Block.verifyBlock(block));
-            console.log("fourth condition: leader verified:", Block.verifyLeader(block, this.getLeader()));
-            console.log("validator of block", block.validator);
-            console.log("leader", this.getLeader());
-            */
-
-
             return false;}
     }
 
@@ -119,6 +108,15 @@ class Blockchain{
                     this.accounts.transferFee(block, transaction);
                     
                     break;
+                
+                case TRANSACTION_TYPE.unstake:
+
+                        this.stakes.updateStakers(transaction);
+                        this.accounts.increment(
+                            transaction.input.from,
+                            transaction.output.amount
+                        );
+                        this.accounts.transferFee(block, transaction);
 
                 case TRANSACTION_TYPE.validator_fee:
                         console.log("about to execute validator transaction : ",);

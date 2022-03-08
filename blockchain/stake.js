@@ -16,9 +16,13 @@ class Stake {
     }
 
 
-    addStake(from, amount) {
-        this.initialize(from);
-        this.stakedBalances[from] += amount;
+    addStake(staker, amount) {
+        this.initialize(staker);
+        this.stakedBalances[staker] += amount;
+    }
+
+    removeStake(staker, amount) {
+        this.stakedBalances[staker] -= amount;
     }
 
 
@@ -42,8 +46,12 @@ class Stake {
 
     updateStakers(transaction) {
         let amount = transaction.output.amount;
-        let from = transaction.input.from;
-        this.addStake(from, amount);
+        let staker = transaction.input.from;
+        if (transaction.type == "STAKE") {
+            this.addStake(staker, amount);
+        } else {
+            this.removeStake(staker, amount);
+        }
     }
 
 

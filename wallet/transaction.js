@@ -35,10 +35,17 @@ class Transaction {
 
     //verify amount of sender before creating transaction
     static newTransaction(senderWallet, to, amount, type){
-
-        if(amount + TRANSACTION_FEE > senderWallet.balance){
-            console.log('not enough balance');
-            return;
+        if (type == "UNSTAKE"){
+            if (amount + senderWallet.balance < TRANSACTION_FEE){
+                console.log("the amount to be unstaked + the current balance of this wallet/node < TRANSACTION FEE");
+                return;
+            }
+        } else{
+            
+            if(amount + TRANSACTION_FEE > senderWallet.balance){
+                console.log('not enough balance');
+                return;
+                }
         }
         //console.log("about to generate a new transaction in transaction class");
         return Transaction.generateTransaction(senderWallet, to, amount, type);

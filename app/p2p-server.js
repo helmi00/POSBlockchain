@@ -113,12 +113,7 @@ class P2pserver{
 
 
                 case MESSAGE_TYPE.transaction:
-                    //let thresholdReached = false;
-                    /*console.log("this transaction's ID is: ", data.transaction.id);
-                    console.log("the last transaction's  id from last added block is: ", this.lastTransactionFromLastAddedBlocId);
-                    console.log("comparaison result is: ",data.transaction.id !== this.lastTransactionFromLastAddedBlocId );
-                    console.log("local pool length at this instance is: ", this.transactionPool.transactions.length);
-                    */
+                    
                     if(data.transaction.id === this.lastTransactionFromLastAddedBlocId){
                     
                         console.log("Transaction Already exists in last bloc!!\n------------------------------------------------");
@@ -137,35 +132,11 @@ class P2pserver{
 
                     
                     
-                     //console.log("thresholdReached? ", this.transactionPool.getThreshholdReached(), "\n-------------------------------------------------------------");
                     
                     
                     //creating the new block when threshhold reached
                     this.createBlockIfLeaderAndIfThreshholdReached();
-                    /*if(this.transactionPool.getThreshholdReached()) {
-                            if (this.blockchain.getLeader() == this.wallet.getPublicKey()) {
-                                
-                                console.log("threshhold REACHED");
-                                console.log("I am the leader this time");
-                                console.log("Creating block");
-                                
-                                let block = this.blockchain.createBlock(
-                                    this.transactionPool.transactions,
-                                    this.wallet
-                                );
-                                console.log("new Block created from transaction pool", block);
-                                this.blockchain.isValidBlock(block, this.wallet);
-                                console.log("the new block has been executed on creator node");
-                                //console.log("showing last transactions added to local transaction pool: ", this.transactionPool.transaction[])
-                                this.lastTransactionFromLastAddedBlocId = this.transactionPool.transactions[this.transactionPool.transactions.length-1].id;
-                                this.transactionPool.clear();
-                                console.log("local transaction pool cleared");
-                                this.broadcastBlock(block);
-
-
-                            }
-                    }
-                    */
+                    
                     break;
                 case emtpy: 
                     console.log("empty message, nothing to treat");
