@@ -31,6 +31,18 @@ class Stake {
         return this.stakedBalances[address];
     }
 
+
+
+    //this function is what determines the leader for each block add operation. Currently it's based a simple highest staked value each time.
+    //But 
+    /** 
+     * this function is what determines the leader for each block add operation. Currently it's based a simple highest staked value each time.
+        But it should be changed to a more complicated function that assigns probability to each staker with the highest probability of being leader
+        goes to the highest staker and so on. And then randomly selects a leader according to those probabilities.
+        Also should take into consideration that the probability of being a leader for a previous leader should lower than anticipated for a few add-block
+        operation in order to ensure that every staker gets a chance.
+        
+        */
     getMax(addresses) {
         let maxStake = -1;
         let leader = undefined;

@@ -26,14 +26,15 @@ class Blockchain{
         console.log("NEW BLOCK ADDED to local chain");
         return block;
     }*/
-    
-    addBlock(newblock ){
+
+    //to add a new block to the local chain
+    addBlock(newblock){
    
 
         this.chain.push(newblock);
-        console.log("new block added to local chain");
+        console.log("NEW BLOCK ADDED TO LOCAL CHAIN");
         
-        if(Array.isArray(newblock.data)){ // verify if data is an array of transaction. if yes then execute them, if not, that means it's a bloc added directly by post /mine api with a simple string for data
+        if(Array.isArray(newblock.data)){ // verify if data is an array of transactions. if yes then execute them, if not, that means it's a bloc added directly by post /mine api with a simple string for data
             this.executeTransactions(newblock);
         }
         return newblock;
@@ -51,7 +52,7 @@ class Blockchain{
     }
 
 
-    isValidBlock(block, wallet) {
+    isValidBlock(block) {
         const lastBlock = this.chain[this.chain.length-1];
 
         /**
@@ -71,7 +72,7 @@ class Blockchain{
         ) {
             console.log("Block is valid by this node");
             
-            this.addBlock(block,wallet);
+            this.addBlock(block);
             return true;
 
         } else if(block.hash === lastBlock.hash){
@@ -88,7 +89,6 @@ class Blockchain{
     executeTransactions(block) {
         
         block.data.forEach(transaction => {
-            //console.log("showing transaction before executing it: ", transaction);  
             
             
             switch (transaction.type) {
@@ -139,8 +139,7 @@ class Blockchain{
 
     isValidChain(chain){
         if(JSON.stringify(chain[0]) !== JSON.stringify(Block.genesis())){
-        //console.log("fist block is not a genesis: ",JSON.stringify(chain[0]) !== JSON.stringify(Block.genesis()));
-        //console.log(JSON.stringify(chain[0]));
+
         return false;
         }
         

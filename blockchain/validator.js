@@ -7,16 +7,15 @@ class Validators {
 
 
     updateValidators(transaction) {
-        //console.log("showing general condition verified of validator ",(transaction.output.amount == VALIDATOR_FEE && transaction.output.to == "0" ));
-        //console.log("showing first condition of fee:    transaction amount = ", transaction.output.amount, " condition result: ", transaction.output.amount == VALIDATOR_FEE);
-        //console.log("showing second condition of to address:     transaction.to address: ", transaction.output.to, " condition result: ", transaction.output.to =="0");
+
         if (transaction.output.amount == VALIDATOR_FEE && transaction.output.to == "0") {
-            //console.log("condition verified");
             this.list.push(transaction.input.from);
-            //console.log("validators updated successfully: ", this.list);
+            console.log("validators updated successfully");
             return true;
         }
-        //console.log("update failed");
+        
+        console.log("updating validators failed");
+        
         return false;
     }
 

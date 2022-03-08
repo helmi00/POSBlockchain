@@ -101,7 +101,7 @@ class P2pserver{
                 
                 
                 case MESSAGE_TYPE.block:
-                    if (this.blockchain.isValidBlock(data.block, this.wallet)) {
+                    if (this.blockchain.isValidBlock(data.block)) {
                         this.lastTransactionFromLastAddedBlocId = this.transactionPool.transactions[this.transactionPool.transactions.length-1].id;
                         this.transactionPool.clear();
                         console.log("local transaction pool  cleared");

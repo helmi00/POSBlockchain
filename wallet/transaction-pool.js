@@ -9,7 +9,7 @@ class TransactionPool {
     }
 
 
-     addTransaction(transaction) {
+    addTransaction(transaction) {
         this.transactions.push(transaction);
         ///console.log("pool length", this.transactions.length);
       

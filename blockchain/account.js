@@ -15,15 +15,12 @@ class Account {
 
 
     transfer(from, to, amount) {
-        /** console.log("excuting transfer");
-        console.log("from: ", from);
-        console.log("to:  ", to);
-        console.log("amount: ",amount);
-        console.log("***");*/
+    
         this.initialize(from);
         this.initialize(to);
         this.increment(to, amount);
         this.decrement(from, amount);
+        
     }
     
     

@@ -81,7 +81,10 @@ app.get('/blocks', (req,res)=>{
 
 //api to add blocks
 app.post('/mine',(req,res)=>{
+    console.log("received request to add a new block");
+
     const block = blockchain.createBlock(req.body.data, wallet);
+    
     console.log("new block added ",block);
 
     p2pserver.syncChain();
@@ -100,23 +103,26 @@ app.get('/transactions', (req,res) => {
 
 //api to create a new transactions
 app.post("/transact", (req, res) => {
+    
 
     const {to,amount,type} = req.body;
+
+    console.log("received request to make a transaction of type ", type);
     
-    const transaction = wallet.createTransaction(
-        to, amount, type, blockchain, transactionPool
-    );
+    const transaction = wallet.createTransaction(to, amount, type, blockchain, transactionPool);
+    
     if(transaction != undefined){    //meaning that transation has actually been created, meaning that the amount is within balance value
         
         console.log("created and added transaction to local pool");
         p2pserver.broadcastTransaction(transaction); //broadcast the newly made transaction to all the local transaction pools of the peers
         p2pserver.createBlockIfLeaderAndIfThreshholdReached();
     
-    }else {
+    } else {
     
         console.log("transaction is not created nor broadcasted\n-----------------------------------------------------------------");
     
     }
+    
     res.redirect("/transactions");
 
 });

@@ -43,10 +43,6 @@ class Wallet {
 
         }
         
-        console.log("verifying stake balance from create transaction function in wallet class: stake value is: ", blockchain.stakes.stakedBalances[this.getPublicKey()]);
-        console.log("type: ", type);
-        console.log("condition value: " ,(type == "UNSTAKE" && (blockchain.stakes.stakedBalances[this.getPublicKey()] < amount)));
-        
         if (type == "UNSTAKE" && (blockchain.stakes.stakedBalances[this.getPublicKey()] == undefined)){
             console.log("this node has not yet been registered as a staker, please make sure that you have send a stake request and retry later after a few minutes (basically wait for the stake request gets executed in a new block");
             return;
@@ -58,11 +54,9 @@ class Wallet {
         }
 
 
-        //console.log("transactin is about to be generated in wallet class");
         let transaction = Transaction.newTransaction(this, to, amount, type);
-        //console.log("transaction created in createTransaction function from wallet.js", transaction);
+        
         if (transaction != undefined) {transactionPool.addTransaction(transaction);}
-        //console.log("added transaction to local pool");
         return transaction;
     }
 
