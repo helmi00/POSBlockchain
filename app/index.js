@@ -141,3 +141,7 @@ app.get('/validators', (req,res) => {
 app.get('/stakers', (req,res) => {
     res.json(blockchain.stakes.stakedBalances);
 });
+
+
+
+//rpc api
