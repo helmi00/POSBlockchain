@@ -1,5 +1,6 @@
 const WebSocket = require("ws");
-const P2P_PORT = process.env.P2P_PORT || 5001;
+const Util = require("util");
+const P2P_PORT = process.argv[3] || process.env.P2P_PORT || 5001;
 const MESSAGE_TYPE = {
     chain: 'CHAIN',
     block: 'BLOCK',
@@ -92,10 +93,14 @@ class P2pserver{
         //on receiving a message, execute a callback function
         socket.on('message', message => {
             const data = JSON.parse(message);
-            console.log("received data from peer :", data);
-
+            console.log("received data from peer :", data.type);
+            console.log(Util.inspect(data,false, null, true));
             switch(data.type) {
                 case MESSAGE_TYPE.chain:
+                    console.table(data.chain);
+                    console.table(data.accounts.balances);
+                    console.table(data.stakes.stakedBalances);
+                    console.table(data.validators);
                     this.blockchain.replaceChain(data);
                     break;
                 
@@ -169,7 +174,8 @@ class P2pserver{
                     this.transactionPool.transactions,
                     this.wallet
                 );
-                console.log("new Block created from transaction pool", block);
+                console.log("new Block created from transaction pool:");
+                console.table(block);
                 //this.blockchain.isValidBlock(block, this.wallet);
                 console.log("the new block has been executed on creator node");
                 //console.log("showing last transactions added to local transaction pool: ", this.transactionPool.transaction[])

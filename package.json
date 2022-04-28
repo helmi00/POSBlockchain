@@ -4,21 +4,41 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon ./app"
+    "test": "node ./.scripts/dev_script",
+    "blockchain:node1": "nodemon ./app 3001 5001",
+    "blockchain:node2": "nodemon ./app 3002 5002",
+    "blockchain:node3": "nodemon ./app 3003 5003",
+    "blockchain": "nodemon ./app",
+    "evm": "nodemon ./dist/index.js",
+    "evm:node1": "nodemon ./dist/index.js 4001",
+    "evm:node2": "nodemon ./dist/index.js 4002",
+    "evm:node3": "nodemon ./dist/index.js 4003",
+    "test:1-node": "start npm run evm:node3 && timeout 5 && start npm run blockchain:node3",
+    "test:3-evm": "start npm run evm:node1 && start npm run evm:node2 && start npm run evm:node3",
+    "test:3-blockchain": "timeout 5 && start npm run blockchain:node1 && start npm run blockchain:node2 && start npm run blockchain:node3",
+    "test:3-nodes": "npm run test:3-evm && npm run test:3-blockchain",
+    "dev": "start npm run evm && timeout 5 && start npm run blockchain",
+    "stop": "(for /f \"tokens=5\" %A in ('netstat -nao -p TCP ^| findstr 3001') do @wmic process where processid=%A get processid,parentprocessid | findstr %A >tempfile) & (for /f \"tokens=1\" %A in (tempfile) do echo about to kill process %A & taskkill /F /PID %A ) && (del tempfile)"
   },
   "keywords": [],
   "author": "Helmi Gharsalli",
   "license": "ISC",
   "devDependencies": {
-    "nodemon": "^2.0.15"
+    "@types/express": "^4.17.2",
+    "nodemon": "^2.0.15",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.3"
   },
   "dependencies": {
+    "@ethereumjs/tx": "^3.5.1",
+    "@ethereumjs/vm": "^5.8.0",
     "@types/crypto-js": "^4.1.1",
     "body-parser": "^1.19.2",
     "crypto-js": "^4.1.1",
     "elliptic": "^6.5.4",
     "express": "^4.17.3",
+    "shelljs-nodecli": "^0.1.1",
+    "solc": "^0.8.13",
     "uuid": "^8.3.2",
     "web3": "^1.7.1",
     "ws": "^8.5.0"

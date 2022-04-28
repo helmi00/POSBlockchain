@@ -3,12 +3,12 @@ const { INITIAL_BALANCE } = require("../config");
 class Account {
     constructor() {
         this.addresses = ["51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d"];
-        this.balance = {"51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":100};
+        this.balances = {"51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":100};
     }
 
     initialize(address) {
-        if (this.balance[address] == undefined) {
-            this.balance[address] = INITIAL_BALANCE;
+        if (this.balances[address] == undefined) {
+            this.balances[address] = INITIAL_BALANCE;
             this.addresses.push(address);
         }
     }
@@ -35,17 +35,17 @@ class Account {
     }
 
     increment(to,amount) {
-        this.balance[to] += amount;
+        this.balances[to] += amount;
     }
 
     decrement(from, amount) {
-        this.balance[from] -= amount;
+        this.balances[from] -= amount;
     }
 
 
     getBalance(address) {
         this.initialize(address);
-        return this.balance[address];
+        return this.balances[address];
     }
 
 

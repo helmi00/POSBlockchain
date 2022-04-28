@@ -5,15 +5,60 @@ const P2pServer = require('./p2p-server');
 const Wallet = require('../wallet/wallet');
 const TransactionPool = require('../wallet/transaction-pool');
 const { VALIDATOR_FEE } = require('../config');
+var {CALCULATION_SM_ADDRESS } = require('../config');
 const Block = require('../blockchain/block');
 
 
+const https = require('https')
+const http = require ('http');
+const { json } = require('body-parser');
 
-const HTTP_PORT = process.env.HTTP_PORT || 3001;
+
+const HTTP_PORT = process.env.HTTP_PORT || process.argv[2] || 3001;
+
+console.log("process args are", process.argv);
 // we can run our app something like the following to run on a
 // different port
 
 //SET HTTP_PORT = 3002 npm run dev
+
+
+
+
+
+
+
+
+//test evm server connection
+const options = {
+    hostname: 'localhost',
+    port: HTTP_PORT-(-1000),
+    path: '/test',
+    method: 'GET'
+  }
+  
+  const req = http.request(options, res => {
+    console.log(`statusCode: ${res.statusCode}`)
+  
+    res.on('data', d => {
+      //process.stdout.write(d)
+      
+      console.log(JSON.parse(d).result)
+      console.log(JSON.parse(d.toString())) 
+      
+    })
+  })
+  
+  req.on('error', error => {
+    console.error(error)
+  })
+   
+  req.end()
+
+
+
+
+
 
 
 //create a new app
@@ -31,6 +76,27 @@ app.listen(HTTP_PORT, () => {
 app.listenerCount(HTTP_PORT,()=>{
     console.log(`listening on port ${HTTP_PORT}`);
 });  
+
+async function test(){
+    console.log("CALCULATION ADDRESS IS", process.env.CALCULATION_SM_ADDRESS);
+}
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -52,12 +118,13 @@ console.log(wallet.toString());
 
 
 
+
+
 //passing blockchain as a dependency for peer connection
 const p2pserver = new P2pServer(blockchain, transactionPool, wallet);
 
 //starts the p2pserver
 p2pserver.listen(); 
-
 
 
 
@@ -89,7 +156,7 @@ app.post('/mine',(req,res)=>{
 
     p2pserver.syncChain();
    
-    res.redirect('/blocks');
+    res.redirect('/blocks'); 
 
 });
 
@@ -145,3 +212,37 @@ app.get('/stakers', (req,res) => {
 
 
 //rpc api
+
+
+
+app.post('/', (req,res) => {
+
+    if (req.body.jsonrpc == "2.0") {
+        const {jsonrpc, method, params, id} = req.body;
+        console.log("jsonrpc request received with method: ", method);
+        
+        switch (method) {
+            case "eth_accounts": 
+                console.table(blockchain.accounts.addresses);
+                res.json({
+                    "id": id,
+                    "jsonrpc": "2.0",
+                    "result" : blockchain.accounts.addresses
+                });
+
+                break;
+            case "eth_block":
+        }
+
+
+
+
+
+
+
+    }else {
+        res.json("must be a json rpc request");
+    }
+
+
+})
