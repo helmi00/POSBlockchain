@@ -10,12 +10,14 @@ import VM from '@ethereumjs/vm'
 import { buildTransaction, encodeDeployment, encodeFunction } from './helpers/tx-builder'
 import { getAccountNonce, insertAccount } from './helpers/account-utils'
 const solc = require('solc')
+const smtchecker = require('solc/smtchecker');
+const smtsolver = require('solc/smtsolver');
 
 const INITIAL_GREETING = 'Hello, World!'
 const SECOND_GREETING = 'Hola, Mundo!'
 var { CALCULATION_SM_ADDRESS } = require("../config");
 
-
+const cors = require('cors')
 
 
 
@@ -34,6 +36,10 @@ function getSolcInput() {
       // If more contracts were to be compiled, they should have their own entries here
     },
     settings: {
+      modelChecker: {
+        engine: "chc",
+        solvers: [ "smtlib2" ]
+      },
       optimizer: {
         enabled: true,
         runs: 200,
@@ -48,6 +54,35 @@ function getSolcInput() {
   }
 }
 
+
+
+
+function findImports(path:any) {
+  console.log("***************************")
+  console.log("path is now :", path)
+  if(path[0]==='@'){
+    console.log("it's a zepellin contract")
+    console.log("join result: ", join('node_modules', path))
+    return {contents: readFileSync(join('node_modules', path), 'utf8')}
+    //console.log("manual join result ", join('node_modules','@openzeppelin','contracts','access', 'Ownable.sol'))
+    //return {contents: readFileSync(join('node_modules','@openzeppelin','contracts','access', 'Ownable.sol'), 'utf8')}
+  }
+  else {
+    console.log("it's not a zepellin contract, but ", path)
+    console.log("join results is: ", join(__dirname, path))
+    return {contents: readFileSync(join(__dirname, path), 'utf8')}
+  }
+}
+
+
+
+
+
+
+
+//const {findImports} = require('./evm-utils.js')
+
+
 /**
  * This function compiles all the contracts in `contracts/` and returns the Solidity Standard JSON
  * output. If the compilation fails, it returns `undefined`.
@@ -56,7 +91,9 @@ function getSolcInput() {
  */
 function compileContracts() {
   const input = getSolcInput()
-  const output = JSON.parse(solc.compile(JSON.stringify(input)))
+  
+  const output = JSON.parse(solc.compile(JSON.stringify(input),  {import: findImports}))
+  solc.compile()
 
   let compilationFailed = false
 
@@ -193,7 +230,7 @@ async function calculate(
   return results[0].toString()
 }
 
-export async function calculate2(vm: VM, contractAddress: Address, caller: Address, methodabi: object , a: number, b: number) {
+async function calculate2(vm: VM, contractAddress: Address, caller: Address, methodabi: object , a: number, b: number) {
   
   const sigHash = new Interface([methodabi]).getSighash('calculate')
   
@@ -269,11 +306,13 @@ async function main() {
   const result = await calculate(vm, accountPk, contractAddress, 3,4)
 
   console.log('calculation result is: ', result)
-  //console.log(typeof(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1]))
-  
+  console.log(typeof(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi))
+  console.log(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi)
   
   const result2 = await calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1], 6,4)
   console.log('result2 is: ', result2)
+
+  
 
   // Now let's look at what we created. The transaction
   // should have created a new account for the contract
@@ -299,6 +338,7 @@ async function main() {
   //evm express server creation
  const evm_server = express();
  evm_server.use(express.json());
+ evm_server.use(cors({origin: 'http://localhost:3001'}))
  const router = express.Router({strict:true});
  evm_server.use('/test', router);
 
@@ -322,15 +362,23 @@ async function main() {
 
   
 
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, res: Response) => {
+
     const result3 = await calculate2(vm, 
                                      contractAddress, 
                                      accountAddress, 
                                      solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1], 
                                      20,
                                      4)
+                              
     
-    
+    console.log("new request received on base Url: ", req.baseUrl)
+    console.log(req.headers)
+    console.log("remote address: ",req.connection.remoteAddress)
+    console.log("remote port: ", req.connection.remotePort)
+    console.log("local address: ", req.connection.localAddress)
+    console.log("local port: ", req.connection.localPort)
+    res.set('Access-Control-Allow-Origin', 'https://www.google.com')
     res.json({
       "result" : result3,
       "sm_adderss": contractAddress.toString()});

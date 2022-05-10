@@ -18,4 +18,4 @@ contract Greeter {
     function calculate( uint256 _a, uint256 _b) public pure returns (uint) {
         return _a+_b;
     }
-}
+}   

@@ -12,7 +12,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculate2 = void 0;
 const express_1 = __importDefault(require("express"));
 const assert_1 = __importDefault(require("assert"));
 const path_1 = require("path");
@@ -24,9 +23,12 @@ const vm_1 = __importDefault(require("@ethereumjs/vm"));
 const tx_builder_1 = require("./helpers/tx-builder");
 const account_utils_1 = require("./helpers/account-utils");
 const solc = require('solc');
+const smtchecker = require('solc/smtchecker');
+const smtsolver = require('solc/smtsolver');
 const INITIAL_GREETING = 'Hello, World!';
 const SECOND_GREETING = 'Hola, Mundo!';
 var { CALCULATION_SM_ADDRESS } = require("../config");
+const cors = require('cors');
 /**
  * This function creates the input for the Solidity compiler.
  *
@@ -42,6 +44,10 @@ function getSolcInput() {
             // If more contracts were to be compiled, they should have their own entries here
         },
         settings: {
+            modelChecker: {
+                engine: "chc",
+                solvers: ["smtlib2"]
+            },
             optimizer: {
                 enabled: true,
                 runs: 200,
@@ -55,6 +61,23 @@ function getSolcInput() {
         },
     };
 }
+function findImports(path) {
+    console.log("***************************");
+    console.log("path is now :", path);
+    if (path[0] === '@') {
+        console.log("it's a zepellin contract");
+        console.log("join result: ", (0, path_1.join)('node_modules', path));
+        return { contents: (0, fs_1.readFileSync)((0, path_1.join)('node_modules', path), 'utf8') };
+        //console.log("manual join result ", join('node_modules','@openzeppelin','contracts','access', 'Ownable.sol'))
+        //return {contents: readFileSync(join('node_modules','@openzeppelin','contracts','access', 'Ownable.sol'), 'utf8')}
+    }
+    else {
+        console.log("it's not a zepellin contract, but ", path);
+        console.log("join results is: ", (0, path_1.join)(__dirname, path));
+        return { contents: (0, fs_1.readFileSync)((0, path_1.join)(__dirname, path), 'utf8') };
+    }
+}
+//const {findImports} = require('./evm-utils.js')
 /**
  * This function compiles all the contracts in `contracts/` and returns the Solidity Standard JSON
  * output. If the compilation fails, it returns `undefined`.
@@ -63,7 +86,8 @@ function getSolcInput() {
  */
 function compileContracts() {
     const input = getSolcInput();
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
+    const output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
+    solc.compile();
     let compilationFailed = false;
     if (output.errors) {
         for (const error of output.errors) {
@@ -79,7 +103,7 @@ function compileContracts() {
     if (compilationFailed) {
         return undefined;
     }
-    console.log('cpmpilation output: ', output.contracts['helpers/Greeter.sol'].Greeter.abi);
+    console.log('compilation output: ', output.contracts['helpers/Greeter.sol'].Greeter.abi);
     return output;
 }
 function getGreeterDeploymentBytecode(solcOutput) {
@@ -178,7 +202,6 @@ function calculate2(vm, contractAddress, caller, methodabi, a, b) {
         return results[0].toString();
     });
 }
-exports.calculate2 = calculate2;
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const accountPk = Buffer.from('e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109', 'hex');
@@ -210,7 +233,8 @@ function main() {
         console.log('testing calculation...');
         const result = yield calculate(vm, accountPk, contractAddress, 3, 4);
         console.log('calculation result is: ', result);
-        //console.log(typeof(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1]))
+        console.log(typeof (solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi));
+        console.log(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi);
         const result2 = yield calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1], 6, 4);
         console.log('result2 is: ', result2);
         // Now let's look at what we created. The transaction
@@ -229,6 +253,7 @@ function main() {
         //evm express server creation
         const evm_server = (0, express_1.default)();
         evm_server.use(express_1.default.json());
+        evm_server.use(cors({ origin: 'http://localhost:3001' }));
         const router = express_1.default.Router({ strict: true });
         evm_server.use('/test', router);
         const EVM_PORT = process.argv[2] || 4001;
@@ -242,8 +267,15 @@ function main() {
             //process.kill(process.ppid, 'SIGINT');
             process.exit(0);
         });
-        router.get('/', (req, res) => __awaiter(this, void 0, void 0, function* () {
+        router.get('/', cors({ origin: 'https://www.google.com' }), (req, res) => __awaiter(this, void 0, void 0, function* () {
             const result3 = yield calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1], 20, 4);
+            console.log("new request received on base Url: ", req.baseUrl);
+            console.log(req.headers);
+            console.log("remote address: ", req.connection.remoteAddress);
+            console.log("remote port: ", req.connection.remotePort);
+            console.log("local address: ", req.connection.localAddress);
+            console.log("local port: ", req.connection.localPort);
+            res.set('Access-Control-Allow-Origin', 'https://www.google.com');
             res.json({
                 "result": result3,
                 "sm_adderss": contractAddress.toString()

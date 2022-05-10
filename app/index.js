@@ -27,6 +27,27 @@ console.log("process args are", process.argv);
 
 
 
+/*fetch("http://localhost:4003/test", 
+{
+            method: "get",
+            mode:"no-cors",
+            headers: {
+                'Content-Type': 'application/json',
+            },        
+            
+}).then(function(response)
+{
+            if(response.ok)
+            {
+                return response.json();
+            }else
+            {
+                console.log(response)
+            }
+}).then(function(body) { console.log(body); }).catch((error) => { console.log(error) });
+*/
+
+
 
 
 //test evm server connection
@@ -34,7 +55,9 @@ const options = {
     hostname: 'localhost',
     port: HTTP_PORT-(-1000),
     path: '/test',
-    method: 'GET'
+    method: 'GET',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json'}
   }
   
   const req = http.request(options, res => {
@@ -44,7 +67,7 @@ const options = {
       //process.stdout.write(d)
       
       console.log(JSON.parse(d).result)
-      console.log(JSON.parse(d.toString())) 
+      console.log(JSON.parse(d)) 
       
     })
   })
@@ -56,6 +79,7 @@ const options = {
   req.end()
 
 
+  
 
 
 

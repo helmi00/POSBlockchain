@@ -12,8 +12,8 @@ const MESSAGE_TYPE = {
 //SET PEERS=ws://localhost:5002,.. & SET P2P_PORT=5001 & SET HTTP_PORT=3001 & npm run dev
 //when running 3 nodes on the same machine, make sure the first node execute a simple npm run dev and for the rest of the nodes: make http port of 300x, p2p port of 500x and peers has all the previous launched nodes p2p ports in the format above
 // no spaces around =!!
-const peers = process.env.PEERS ? process.env.PEERS.split(',') : [];
-
+const peers = (process.argv[4])? process.argv[4].split(',') : (process.env.PEERS)? process.env.PEERS.split(',') :  [];
+ 
 class P2pserver{
     constructor(blockchain, transactionPool, wallet){
         this.blockchain = blockchain;

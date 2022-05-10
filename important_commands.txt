@@ -2,3 +2,6 @@ to convert evm ts files to js files in the approriate folder: tsc --esModuleInte
 
 shutting down 3001 server forcefully script:
 (for /f \"tokens=5\" %A in ('netstat -nao -p TCP ^| findstr 3001') do @wmic process where processid=%A get processid,parentprocessid | findstr %A >tempfile) & (for /f \"tokens=1\" %A in (tempfile) do echo about to kill process %A & taskkill /F /PID %A ) && (del tempfile)
+
+
+getwaffle.io great framework for testing smart contract with scripts
