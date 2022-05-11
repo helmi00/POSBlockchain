@@ -10,14 +10,11 @@ import VM from '@ethereumjs/vm'
 import { buildTransaction, encodeDeployment, encodeFunction } from './helpers/tx-builder'
 import { getAccountNonce, insertAccount } from './helpers/account-utils'
 const solc = require('solc')
-const smtchecker = require('solc/smtchecker');
-const smtsolver = require('solc/smtsolver');
+const cors = require('cors')
+
 
 const INITIAL_GREETING = 'Hello, World!'
 const SECOND_GREETING = 'Hola, Mundo!'
-var { CALCULATION_SM_ADDRESS } = require("../config");
-
-const cors = require('cors')
 
 
 
@@ -36,10 +33,7 @@ function getSolcInput() {
       // If more contracts were to be compiled, they should have their own entries here
     },
     settings: {
-      modelChecker: {
-        engine: "chc",
-        solvers: [ "smtlib2" ]
-      },
+     
       optimizer: {
         enabled: true,
         runs: 200,
@@ -59,19 +53,16 @@ function getSolcInput() {
 
 function findImports(path:any) {
   console.log("***************************")
-  console.log("path is now :", path)
+  console.log("Now compiling imported smart contract with path of:", path)
   if(path[0]==='@'){
-    console.log("it's a zepellin contract")
-    console.log("join result: ", join('node_modules', path))
+    console.log("which is a zepellin contract")
     return {contents: readFileSync(join('node_modules', path), 'utf8')}
-    //console.log("manual join result ", join('node_modules','@openzeppelin','contracts','access', 'Ownable.sol'))
-    //return {contents: readFileSync(join('node_modules','@openzeppelin','contracts','access', 'Ownable.sol'), 'utf8')}
-  }
+    }
   else {
-    console.log("it's not a zepellin contract, but ", path)
-    console.log("join results is: ", join(__dirname, path))
+    console.log("which is not a zepellin contract, but a local contract ", path)
     return {contents: readFileSync(join(__dirname, path), 'utf8')}
   }
+
 }
 
 
@@ -80,7 +71,6 @@ function findImports(path:any) {
 
 
 
-//const {findImports} = require('./evm-utils.js')
 
 
 /**
@@ -93,7 +83,7 @@ function compileContracts() {
   const input = getSolcInput()
   
   const output = JSON.parse(solc.compile(JSON.stringify(input),  {import: findImports}))
-  solc.compile()
+  
 
   let compilationFailed = false
 
@@ -125,6 +115,7 @@ async function deployContract(
   deploymentBytecode: Buffer,
   greeting: string
 ): Promise<Address> {
+
   // Contracts are deployed by sending their deployment bytecode to the address 0
   // The contract params should be abi-encoded and appended to the deployment bytecode.
   const data = encodeDeployment(deploymentBytecode.toString('hex'), {
@@ -212,12 +203,10 @@ async function calculate(
     nonce: await getAccountNonce(vm, senderPrivateKey),
   }
 
-  //console.log('transaction data created: ', txData)
 
 
   const tx = Transaction.fromTxData(buildTransaction(txData)).sign(senderPrivateKey)
 
-  //console.log('transaction created ', tx)
 
   const setCalculatingResult = await vm.runTx({ tx })
 
@@ -249,6 +238,11 @@ async function calculate2(vm: VM, contractAddress: Address, caller: Address, met
 
   return results[0].toString()
 }
+
+
+
+
+
 
 
 
@@ -309,7 +303,7 @@ async function main() {
   console.log(typeof(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi))
   console.log(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi)
   
-  const result2 = await calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1], 6,4)
+  const result2 = await calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[2], 6,4)
   console.log('result2 is: ', result2)
 
   
@@ -353,8 +347,6 @@ async function main() {
  process.on('SIGINT', () => {
     console.log("Terminating...");
     s.close();
-    //process.kill(process.ppid, 'SIGTERM');
-    //process.kill(process.ppid, 'SIGINT');
     process.exit(0); 
  });
 
