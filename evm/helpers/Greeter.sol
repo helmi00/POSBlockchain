@@ -26,6 +26,11 @@ contract Greeter is  Ownable  {
         return _a+_b;
     }
 
+
+    function getMsgSender() public view returns (address) {
+
+        return _msgSender();
+    }
     /*function test() public pure {
         f();
     }*/

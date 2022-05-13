@@ -9,8 +9,11 @@ import { Transaction } from '@ethereumjs/tx'
 import VM from '@ethereumjs/vm'
 import { buildTransaction, encodeDeployment, encodeFunction } from './helpers/tx-builder'
 import { getAccountNonce, insertAccount } from './helpers/account-utils'
+import { json } from 'body-parser';
 const solc = require('solc')
 const cors = require('cors')
+const Util = require("util");
+
 
 
 const INITIAL_GREETING = 'Hello, World!'
@@ -239,7 +242,29 @@ async function calculate2(vm: VM, contractAddress: Address, caller: Address, met
   return results[0].toString()
 }
 
+async function getMsgSender(vm: VM, contractAddress: Address, caller: Address, methodABI: object) {
+  const sigHash = new Interface([methodABI]).getSighash('getMsgSender')
 
+  const result = await vm.runCall({
+    to: contractAddress,
+    caller: caller,
+    origin: caller,
+    data: Buffer.from(sigHash.slice(2), 'hex'),
+  })
+
+  if(result.execResult.exceptionError) { throw result.execResult.exceptionError}
+  //console.log("success with result of: ", Util.inspect(result.execResult,false, null, true))
+  //console.log("return value is: ", result.execResult.returnValue.toString())
+  //console.log("origin in run state value:", (result.execResult.runState.origin)? result.execResult.runState.origin.toString(): "undefined")
+  //console.log("caller in run state value:", result.execResult.runState.caller.toString())
+  //console.log("address in run state value:", result.execResult.runState.address.toString())
+
+
+  const decodedResult = AbiCoder.decode(['address'], result.execResult.returnValue)
+  console.log("decoded result is ", decodedResult[0].toString())
+
+  return decodedResult[0].toString()
+}
 
 
 
@@ -326,13 +351,21 @@ async function main() {
   var blocks =  (await vm.blockchain.getBlock(0))
 
   
+  process.on('SIGINT', () => {
+    console.log("Terminating...");
+    s.close();
+    process.exit(0); 
+ });
+
   
-  
+
+
+
   
   //evm express server creation
  const evm_server = express();
  evm_server.use(express.json());
- evm_server.use(cors({origin: 'http://localhost:3001'}))
+ //evm_server.use(cors({origin: 'http://localhost:3001'}))
  const router = express.Router({strict:true});
  evm_server.use('/test', router);
 
@@ -344,15 +377,6 @@ async function main() {
 
 
 
- process.on('SIGINT', () => {
-    console.log("Terminating...");
-    s.close();
-    process.exit(0); 
- });
-
- 
-
-  
 
   router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, res: Response) => {
 
@@ -376,7 +400,18 @@ async function main() {
       "sm_adderss": contractAddress.toString()});
 
   })
-  //console.log(blocks )
+
+
+
+
+
+
+  router.get('/msg-sender',async (req: Request, res: Response) => {
+
+    let msgSender = await getMsgSender(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[3])
+    console.log("request received to msg sender ", msgSender)
+    res.json(msgSender)
+  })
 }
 
 
