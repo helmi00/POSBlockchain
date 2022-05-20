@@ -12,6 +12,7 @@ const Block = require('../blockchain/block');
 const https = require('https')
 const http = require ('http');
 const { json } = require('body-parser');
+const axios = require('axios');
 
 
 const HTTP_PORT = process.env.HTTP_PORT || process.argv[2] || 3001;
@@ -26,60 +27,6 @@ console.log("process args are", process.argv);
 
 
 
-
-/*fetch("http://localhost:4003/test", 
-{
-            method: "get",
-            mode:"no-cors",
-            headers: {
-                'Content-Type': 'application/json',
-            },        
-            
-}).then(function(response)
-{
-            if(response.ok)
-            {
-                return response.json();
-            }else
-            {
-                console.log(response)
-            }
-}).then(function(body) { console.log(body); }).catch((error) => { console.log(error) });
-*/
-
-
-
-
-//test evm server connection
-const options = {
-    hostname: 'localhost',
-    port: HTTP_PORT-(-1000),
-    path: '/test',
-    method: 'GET',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json'}
-  }
-  
-  const req = http.request(options, res => {
-    console.log(`statusCode: ${res.statusCode}`)
-  
-    res.on('data', d => {
-      //process.stdout.write(d)
-      
-      console.log(JSON.parse(d).result)
-      console.log(JSON.parse(d)) 
-      
-    })
-  })
-  
-  req.on('error', error => {
-    console.error(error)
-  })
-   
-  req.end()
-
-
-  
 
 
 
@@ -134,7 +81,8 @@ const blockchain = new Blockchain();
 const transactionPool = new TransactionPool();
 
 //create a new wallet for the node/peer excecuting this script
-const wallet = new Wallet(HTTP_PORT % 10 == 1? "I am the first leader/node":Date.now().toString()); //Date.now() is used to create a random string for secret
+const secret = HTTP_PORT % 10 == 1? "I am the first leader/node":Date.now().toString() //Date.now() is used to create a random string for secret
+const wallet = new Wallet(secret); 
 
 //console.log("created new wallet for this node with the balance of", wallet.getBalance(blockchain));
 //console.log("and with public key: ", wallet.getPublicKey());
@@ -149,6 +97,77 @@ const p2pserver = new P2pServer(blockchain, transactionPool, wallet);
 
 //starts the p2pserver
 p2pserver.listen(); 
+
+
+
+
+
+
+
+
+
+
+
+
+
+/** MUST WAIT A FEW SECONDS FOR THE BLOCKCHAIN TO BE UPDATED BY P2P NETWORK AND THEN SEND DEPLOYING REQUEST
+ * TO THE LOCAL EVM WITH THE UPDATED BLOCKCHAIN DATA
+ */
+setTimeout(() => {
+    console.log("timeout finished")
+    startDeployment()
+} , 2000)
+
+
+
+
+data = {
+    "secret": secret,
+    "walletAddress": wallet.getPublicKey(),
+    "balances": blockchain.accounts.balances
+
+    
+}
+
+
+const startDeployment = async () => {
+    try {
+        console.log("sending deployment request")
+        const res = await axios.post(`http://localhost:${HTTP_PORT - (-1000)}/test/deploy`, data);
+        console.log(`Status: ${res.status}`);
+        console.log('Body: ', res.data);
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+
+
+
+const testMsgSender = async () => {
+    try{
+        const res = await axios.get(`http://localhost:${HTTP_PORT - (-1000)}/test/msg-sender`)
+        console.log("message sender is ", res.data)
+        return res.data
+    } catch (err) {
+        console.error(err)
+    }
+}
+console.log("sending get msg sender request")
+//testMsgSender()
+
+ 
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -233,6 +252,10 @@ app.get('/stakers', (req,res) => {
     res.json(blockchain.stakes.stakedBalances);
 });
 
+
+app.get('/msg-sender', (req,res) => {
+    res.json(JSON.stringify(testMsgSender()))
+})
 
 
 //rpc api

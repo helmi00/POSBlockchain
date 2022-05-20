@@ -9,13 +9,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 contract Greeter is  Ownable  {
+
     string greeting;
     constructor(string memory _greeting) {
         greeting = _greeting;
     }
 
-    function setGreeting(string memory _greeting) public {
+    function setGreeting(string memory _greeting) public returns (bool) {
         greeting = _greeting;
+        return true;
     }
 
     function greet() public view returns (string memory) {  

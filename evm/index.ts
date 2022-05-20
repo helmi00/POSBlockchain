@@ -3,13 +3,16 @@ import express, {application, Request, Response} from 'express';
 import assert from 'assert'
 import { join } from 'path'
 import { readFileSync } from 'fs'
-import { defaultAbiCoder as AbiCoder, Interface } from '@ethersproject/abi'
 import { Address } from 'ethereumjs-util'
 import { Transaction } from '@ethereumjs/tx'
 import VM from '@ethereumjs/vm'
-import { buildTransaction, encodeDeployment, encodeFunction } from './helpers/tx-builder'
+import { buildTransaction, encodeDeployment } from './helpers/tx-builder'
 import { getAccountNonce, insertAccount } from './helpers/account-utils'
-import { json } from 'body-parser';
+import { calculate2 } from './sm-functions/calculate2';
+import { getMsgSender } from './sm-functions/getMsgSender';
+import { setGreeting } from './sm-functions/setGreeting';
+import { getGreeting } from './sm-functions/getGreeting';
+import { calculate } from './sm-functions/calculate';
 const solc = require('solc')
 const cors = require('cors')
 const Util = require("util");
@@ -18,6 +21,17 @@ const Util = require("util");
 
 const INITIAL_GREETING = 'Hello, World!'
 const SECOND_GREETING = 'Hola, Mundo!'
+
+
+let vm: VM
+let contractAddress: Address 
+let accountAddress: Address
+let solcOutput: any
+let deployed: boolean = false
+let walletAddress: string
+let importedAccountPK: Buffer
+let evmAddresses : Map<string,string> = new Map<string,string>()
+let balances : Map<Address, Number> = new Map<Address,Number>()
 
 
 
@@ -53,7 +67,11 @@ function getSolcInput() {
 
 
 
-
+/**
+ * 
+ * @param path : the import path of the imported contract/library as declared in the smart contract that is being compiled
+ * @returns the content of the the imported smart contract in ut8 format, after correcting the path, to be compiled
+ */
 function findImports(path:any) {
   console.log("***************************")
   console.log("Now compiling imported smart contract with path of:", path)
@@ -112,6 +130,17 @@ function getGreeterDeploymentBytecode(solcOutput: any): any {
   return solcOutput.contracts['helpers/Greeter.sol'].Greeter.evm.bytecode.object
 }
 
+
+
+
+/**
+ * 
+ * @param vm 
+ * @param senderPrivateKey 
+ * @param deploymentBytecode 
+ * @param greeting 
+ * @returns 
+ */
 async function deployContract(
   vm: VM,
   senderPrivateKey: Buffer,
@@ -142,168 +171,53 @@ async function deployContract(
   return deploymentResult.createdAddress!
 }
 
-async function setGreeting(
-  vm: VM,
-  senderPrivateKey: Buffer,
-  contractAddress: Address,
-  greeting: string
-) {
-  const data = encodeFunction('setGreeting', {
-    types: ['string'],
-    values: [greeting],
-  })
 
-  const txData = {
-    to: contractAddress,
-    data,
-    nonce: await getAccountNonce(vm, senderPrivateKey),
+function populateAccounts(importedBalances: any){
+  for (var account in importedBalances) {
+    balances.set(Address.fromPrivateKey(Buffer.from(account,'hex')),importedBalances[account])
+    evmAddresses.set(Address.fromPrivateKey(Buffer.from(account,'hex')).toString(),account)
   }
-
-  const tx = Transaction.fromTxData(buildTransaction(txData)).sign(senderPrivateKey)
-
-  const setGreetingResult = await vm.runTx({ tx })
-
-  if (setGreetingResult.execResult.exceptionError) {
-    throw setGreetingResult.execResult.exceptionError
-  }
+  console.log("populated local balances with: ", balances)
+  console.log("populated evm addresses: ", evmAddresses)
 }
 
-async function getGreeting(vm: VM, contractAddress: Address, caller: Address) {
-  const sigHash = new Interface(['function greet()']).getSighash('greet')
+async function launchEVM() {
+  if(deployed == true) return;
 
-  const greetResult = await vm.runCall({
-    to: contractAddress,
-    caller: caller,
-    origin: caller, // The tx.origin is also the caller here
-    data: Buffer.from(sigHash.slice(2), 'hex'),
-  })
-
-  if (greetResult.execResult.exceptionError) {
-    throw greetResult.execResult.exceptionError
-  }
-
-  const results = AbiCoder.decode(['string'], greetResult.execResult.returnValue)
-
-  return results[0]
-}
-
-
-async function calculate(
-  vm: VM,
-  senderPrivateKey: Buffer,
-  contractAddress: Address,
-  a: number,
-  b: number
-) {
-  const data = encodeFunction('calculate', {
-    types: ['uint256','uint256'],
-    values: [a,b],
-  })
-  
-  const txData = {
-    to: contractAddress,
-    data,
-    nonce: await getAccountNonce(vm, senderPrivateKey),
-  }
-
-
-
-  const tx = Transaction.fromTxData(buildTransaction(txData)).sign(senderPrivateKey)
-
-
-  const setCalculatingResult = await vm.runTx({ tx })
-
-  if (setCalculatingResult.execResult.exceptionError) {
-    throw setCalculatingResult.execResult.exceptionError
-  }
-
-  const results = AbiCoder.decode(['uint256'], setCalculatingResult.execResult.returnValue)
-
-  return results[0].toString()
-}
-
-async function calculate2(vm: VM, contractAddress: Address, caller: Address, methodabi: object , a: number, b: number) {
-  
-  const sigHash = new Interface([methodabi]).getSighash('calculate')
-  
-  const greetResult = await vm.runCall({
-    to: contractAddress,
-    caller: caller,
-    origin: caller, // The tx.origin is also the caller here
-    data: Buffer.from(sigHash.slice(2)+AbiCoder.encode(['uint256','uint256'],[a,b]).slice(2), 'hex'),
-  })
-
-  if (greetResult.execResult.exceptionError) {
-    throw greetResult.execResult.exceptionError
-  }
-
-  const results = AbiCoder.decode(['uint256'], greetResult.execResult.returnValue)
-
-  return results[0].toString()
-}
-
-async function getMsgSender(vm: VM, contractAddress: Address, caller: Address, methodABI: object) {
-  const sigHash = new Interface([methodABI]).getSighash('getMsgSender')
-
-  const result = await vm.runCall({
-    to: contractAddress,
-    caller: caller,
-    origin: caller,
-    data: Buffer.from(sigHash.slice(2), 'hex'),
-  })
-
-  if(result.execResult.exceptionError) { throw result.execResult.exceptionError}
-  //console.log("success with result of: ", Util.inspect(result.execResult,false, null, true))
-  //console.log("return value is: ", result.execResult.returnValue.toString())
-  //console.log("origin in run state value:", (result.execResult.runState.origin)? result.execResult.runState.origin.toString(): "undefined")
-  //console.log("caller in run state value:", result.execResult.runState.caller.toString())
-  //console.log("address in run state value:", result.execResult.runState.address.toString())
-
-
-  const decodedResult = AbiCoder.decode(['address'], result.execResult.returnValue)
-  console.log("decoded result is ", decodedResult[0].toString())
-
-  return decodedResult[0].toString()
-}
-
-
-
-
-
-
-async function main() {
   const accountPk = Buffer.from(
     'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',
     'hex'
   )
 
-  const vm = new VM()
-
+   vm = new VM()
   
-  const accountAddress = Address.fromPrivateKey(accountPk)
+
+
+  importedAccountPK = Buffer.from(walletAddress,'hex')
+  accountAddress = walletAddress == undefined ? Address.fromPrivateKey(accountPk): Address.fromPrivateKey(importedAccountPK)
 
   console.log('Account: ', accountAddress.toString())
   await insertAccount(vm, accountAddress)
 
-  console.log('Compiling...')
-
-  const solcOutput = compileContracts() 
-  if (solcOutput === undefined) {
-    throw new Error('Compilation failed')
-  } else {
-    console.log('Compiled the contract')
-  }
+  
+  
 
   const bytecode = getGreeterDeploymentBytecode(solcOutput)
 
   console.log('Deploying the contract...')
+  
 
-  const contractAddress = await deployContract(vm, accountPk, bytecode, INITIAL_GREETING)
-  process.env.CALCULATION_SM_ADDRESS = contractAddress.toString()
+  contractAddress = await deployContract(vm, importedAccountPK, bytecode, INITIAL_GREETING)
   
 
   console.log('Contract address:', contractAddress.toString())
+  console.log("EVM LAUNCHED SUCCESSFULLY \n-------------------------------------------------")
+}
 
+
+async function testing() {
+
+  console.log("Starting testing evm \n------------------------------------------------")
   const greeting = await getGreeting(vm, contractAddress, accountAddress)
 
   console.log('Greeting:', greeting)
@@ -312,7 +226,7 @@ async function main() {
 
   console.log('Changing greeting...')
 
-  await setGreeting(vm, accountPk, contractAddress, SECOND_GREETING)
+  await setGreeting(vm, importedAccountPK, contractAddress, SECOND_GREETING)
 
   const greeting2 = await getGreeting(vm, contractAddress, accountAddress)
 
@@ -320,13 +234,13 @@ async function main() {
 
   assert.equal(greeting2, SECOND_GREETING)
 
+
   console.log('testing calculation...')
 
-  const result = await calculate(vm, accountPk, contractAddress, 3,4)
+  const result = await calculate(vm, importedAccountPK, contractAddress, 3,4)
 
   console.log('calculation result is: ', result)
-  console.log(typeof(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi))
-  console.log(solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi)
+  
   
   const result2 = await calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[2], 6,4)
   console.log('result2 is: ', result2)
@@ -347,74 +261,147 @@ async function main() {
   console.log('---------------------')
 
   console.log('Everything ran correctly!')
-  //console.log(vm.getActiveOpcodes())
-  var blocks =  (await vm.blockchain.getBlock(0))
-
   
-  process.on('SIGINT', () => {
-    console.log("Terminating...");
-    s.close();
-    process.exit(0); 
- });
 
-  
+
+  deployed = true
 
 
 
   
-  //evm express server creation
- const evm_server = express();
- evm_server.use(express.json());
- //evm_server.use(cors({origin: 'http://localhost:3001'}))
- const router = express.Router({strict:true});
- evm_server.use('/test', router);
 
- const EVM_PORT = process.argv[2] || 4001;
-
-  var s = evm_server.listen(EVM_PORT, () => {
-    console.log("evm server is listening on port ", EVM_PORT);
-  })
-
-
-
-
-  router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, res: Response) => {
-
-    const result3 = await calculate2(vm, 
-                                     contractAddress, 
-                                     accountAddress, 
-                                     solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[1], 
-                                     20,
-                                     4)
-                              
-    
-    console.log("new request received on base Url: ", req.baseUrl)
-    console.log(req.headers)
-    console.log("remote address: ",req.connection.remoteAddress)
-    console.log("remote port: ", req.connection.remotePort)
-    console.log("local address: ", req.connection.localAddress)
-    console.log("local port: ", req.connection.localPort)
-    res.set('Access-Control-Allow-Origin', 'https://www.google.com')
-    res.json({
-      "result" : result3,
-      "sm_adderss": contractAddress.toString()});
-
-  })
-
-
-
-
-
-
-  router.get('/msg-sender',async (req: Request, res: Response) => {
-
-    let msgSender = await getMsgSender(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[3])
-    console.log("request received to msg sender ", msgSender)
-    res.json(msgSender)
-  })
 }
 
 
-main()
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//main
+console.log('Compiling...')
+
+  solcOutput = compileContracts() 
+  if (solcOutput === undefined) {
+    throw new Error('Compilation failed')
+  } else {
+    console.log('Compiled the contract')
+  }
+
+
+//evm express server creation
+const evm_server = express();
+evm_server.use(express.json());
+//evm_server.use(cors({origin: 'http://localhost:3001'}))
+const router = express.Router({strict:true});
+evm_server.use('/test', router);
+ 
+const EVM_PORT = process.argv[2] || 4001;
+ 
+var s = evm_server.listen(EVM_PORT, () => {
+  console.log("evm server is listening on port ", EVM_PORT);
+})
+ 
+ 
+ 
+
+
+
+
+
+/** EVM SERVER APIs */
+ 
+router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, res: Response) => {
+
+  const result3 = await calculate2(vm, 
+                                   contractAddress, 
+                                   accountAddress, 
+                                   solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[2], 
+                                   20,
+                                   4)
+                               
+     
+  console.log("new request received on base Url: ", req.baseUrl)
+  console.log(req.headers)
+  console.log("remote address: ",req.connection.remoteAddress)
+  console.log("remote port: ", req.connection.remotePort)
+  console.log("local address: ", req.connection.localAddress)
+  console.log("local port: ", req.connection.localPort)
+  res.set('Access-Control-Allow-Origin', 'https://www.google.com')
+  res.json({
+    "result" : result3,
+    "sm_adderss": contractAddress.toString()});
+
+})
+ 
+ 
+ 
+ 
+ 
+ 
+router.get('/msg-sender',async (req: Request, res: Response) => {
+ 
+  let msgSender  = await getMsgSender(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[3])
+  console.log("request received to evm msg sender ", msgSender)
+  console.log("request received from web msg-sender: ", evmAddresses.get(msgSender))
+  res.json(evmAddresses.get(msgSender))
+  
+})
+
+
+
+
+router.post('/deploy', async (req: Request, res:Response) => {
+  console.log("deployment request received from blockchain web server with request body of ", req.body)
+  
+  if(deployed==true) {
+    console.log("already deployed \n-----------------------------------------------------")
+    res.json({"message": "already deployed"})
+  }
+  else {
+    console.log("launching evm and deploying smart contracts")
+    
+    walletAddress = req.body.walletAddress
+
+    console.log("received balances are: ", req.body.balances)
+    console.log("populating balances in local variable")
+    populateAccounts(req.body.balances)
+    
+    await launchEVM()
+    console.log("deployment completed")   
+    console.log("contract address is ", contractAddress.toString())
+    console.log("-----------------------------------------------")
+    await testing()
+    res.json({"deployed": true,
+              "contract Address": contractAddress.toString(),
+              "account Address": accountAddress.toString(),
+          })
+  }
+  
+})
+
+
+
+
+
+
+
+
+
+process.on('SIGINT', () => {
+  console.log("Terminating...");
+  s.close();
+  process.exit(0); 
+});

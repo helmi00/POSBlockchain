@@ -23,7 +23,7 @@ class ChainUtil {
         return SHA256(JSON.stringify(data)).toString();
     }
 
-    static verifySignature (publicKey,signature,dataHash) {
+    static verifySignature(publicKey,signature,dataHash) {
         return eddsa.keyFromPublic(publicKey).verify(dataHash,signature);
     }
 }

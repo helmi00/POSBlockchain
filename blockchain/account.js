@@ -2,8 +2,13 @@ const { INITIAL_BALANCE } = require("../config");
 
 class Account {
     constructor() {
-        this.addresses = ["51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d"];
-        this.balances = {"51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":100};
+        this.addresses = ["51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d",
+                          "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888",
+                          "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4777"];
+        this.balances = {"51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":100,
+                         "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888":80,
+                         "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4777":70
+                         };
     }
 
     initialize(address) {

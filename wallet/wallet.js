@@ -2,14 +2,24 @@ const ChainUtil = require("../chain-Util");
 const Transaction = require("./transaction");
 const {INITIAL_BALANCE} = require("../config");
 const TransactionPool = require("./transaction-pool");
+//import { Address } from 'ethereumjs-util'
+//const {Address} = require('node_modules/etheremjs-util/dist.browser/Address.js')
 
 
 
 class Wallet {
     constructor(secret){
         this.balance = INITIAL_BALANCE;
-        this.keyPair = ChainUtil.genKeyPair(secret);
-        this.publicKey = this.keyPair.getPublic("hex");
+        this.keyPair = ChainUtil.genKeyPair(secret); //Old keypair algorithm using eddsa
+        this.publicKey = this.keyPair.getPublic("hex"); //Old keypair algorithm using eddsa
+        
+        //new key using ethereum-util/address : not working due to some error not recognizing the module
+        /*this.keyPair = {
+            privateKey: Buffer.from( secret, 'hex'),
+            publicKey : Address.fromPrivateKey(privateKey)
+        }
+        this.publicKey = this.keyPair.publicKey;
+        */
     }
 
 
@@ -66,6 +76,10 @@ class Wallet {
 
     getPublicKey() {
         return this.publicKey;
+    }
+
+    getPrivateKey() {
+        return this.keyPair.getSecret('hex')
     }
 }
 
