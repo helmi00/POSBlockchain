@@ -2,12 +2,12 @@ const { INITIAL_BALANCE } = require("../config");
 
 class Account {
     constructor() {
-        this.addresses = ["51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d",
-                          "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888",
-                          "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4777"];
-        this.balances = {"51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":100,
-                         "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888":80,
-                         "51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4777":70
+        this.addresses = ["0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d",
+                          "0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888",
+                          "0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4777"];
+        this.balances = {"0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":100,
+                         "0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888":80,
+                         "0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4777":70
                          };
     }
 
@@ -15,6 +15,7 @@ class Account {
         if (this.balances[address] == undefined) {
             this.balances[address] = INITIAL_BALANCE;
             this.addresses.push(address);
+            console.log("address ", address, " has been initialized with balance of: ", this.balances[address])
         }
     }
 

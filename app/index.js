@@ -116,7 +116,7 @@ p2pserver.listen();
 setTimeout(() => {
     console.log("timeout finished")
     startDeployment()
-} , 2000)
+} , 5000)
 
 
 
@@ -253,6 +253,9 @@ app.get('/stakers', (req,res) => {
 });
 
 
+app.get('/leader', (req, res) => { 
+    res.json({leaderAddress: blockchain.getLeader()})
+})
 app.get('/msg-sender', (req,res) => {
     res.json(JSON.stringify(testMsgSender()))
 })

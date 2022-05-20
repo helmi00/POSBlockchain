@@ -67,7 +67,7 @@ class Block {
 
     static verifyBlock(block) {
     return ChainUtil.verifySignature(
-      block.validator,
+      block.validator.slice(2),
       block.signature,
       Block.hash(block.timestamp, block.lastHash, block.data)
     );

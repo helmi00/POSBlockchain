@@ -11,7 +11,7 @@ class Wallet {
     constructor(secret){
         this.balance = INITIAL_BALANCE;
         this.keyPair = ChainUtil.genKeyPair(secret); //Old keypair algorithm using eddsa
-        this.publicKey = this.keyPair.getPublic("hex"); //Old keypair algorithm using eddsa
+        this.publicKey = '0x'+this.keyPair.getPublic("hex"); //Old keypair algorithm using eddsa
         
         //new key using ethereum-util/address : not working due to some error not recognizing the module
         /*this.keyPair = {

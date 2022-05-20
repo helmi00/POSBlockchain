@@ -174,8 +174,8 @@ async function deployContract(
 
 function populateAccounts(importedBalances: any){
   for (var account in importedBalances) {
-    balances.set(Address.fromPrivateKey(Buffer.from(account,'hex')),importedBalances[account])
-    evmAddresses.set(Address.fromPrivateKey(Buffer.from(account,'hex')).toString(),account)
+    balances.set(Address.fromPrivateKey(Buffer.from(account.slice(2),'hex')),importedBalances[account])
+    evmAddresses.set(Address.fromPrivateKey(Buffer.from(account.slice(2),'hex')).toString(),account)
   }
   console.log("populated local balances with: ", balances)
   console.log("populated evm addresses: ", evmAddresses)
@@ -373,7 +373,7 @@ router.post('/deploy', async (req: Request, res:Response) => {
   else {
     console.log("launching evm and deploying smart contracts")
     
-    walletAddress = req.body.walletAddress
+    walletAddress = req.body.walletAddress.slice(2)
 
     console.log("received balances are: ", req.body.balances)
     console.log("populating balances in local variable")

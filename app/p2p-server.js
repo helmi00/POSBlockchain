@@ -5,7 +5,7 @@ const MESSAGE_TYPE = {
     chain: 'CHAIN',
     block: 'BLOCK',
     transaction: 'TRANSACTION',
-    emtpy: ''
+    emtpy: '' 
 }
 
 
