@@ -14,7 +14,7 @@ export async function getMsgSender(vm: VM, contractAddress: Address, caller: Add
 
   if (result.execResult.exceptionError) { throw result.execResult.exceptionError; }
   const decodedResult = AbiCoder.decode(['address'], result.execResult.returnValue);
-  console.log("decoded result is ", decodedResult[0]);
+  console.log("decoded result is ", decodedResult[0], " and it's type is ", typeof(decodedResult[0]));
 
   return decodedResult[0].toLowerCase();
 }

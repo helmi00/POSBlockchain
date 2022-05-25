@@ -3,19 +3,19 @@ pragma solidity ^0.8.0;
 
 
 contract owned {
-    address public owner;
+    address public _owner;
  
-    constructor() public {
-        owner = msg.sender;
+    constructor(address owner) public {
+        _owner = owner;
     }
  
     modifier onlyOwner {
-        require(msg.sender == owner);
+        require(msg.sender == _owner);
         _;
     }
  
     function transferOwnership(address newOwner) onlyOwner public {
-        owner = newOwner;
+        _owner = newOwner;
     }
 }
  
@@ -61,7 +61,7 @@ contract TokenERC20 {
     /**
      * Internal transfer, only can be called by this contract
      */
-    function _transfer(address _from, address _to, uint _value) internal {
+    function _transfer(address _from, address _to, uint _value) virtual override internal {
         // Prevent transfer to 0x0 address. Use burn() instead
         require(_to != address(0x0));
         // Check if the sender has enough

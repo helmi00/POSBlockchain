@@ -1,40 +1,41 @@
 import express, {application, Request, Response} from 'express';
 
-import assert from 'assert'
 import { join } from 'path'
 import { readFileSync } from 'fs'
 import { Address } from 'ethereumjs-util'
-import { Transaction } from '@ethereumjs/tx'
 import VM from '@ethereumjs/vm'
-import { buildTransaction, encodeDeployment } from './helpers/tx-builder'
-import { getAccountNonce, insertAccount } from './helpers/account-utils'
-import { calculate2 } from './sm-functions/calculate2';
-import { getMsgSender } from './sm-functions/getMsgSender';
-import { setGreeting } from './sm-functions/setGreeting';
-import { getGreeting } from './sm-functions/getGreeting';
-import { calculate } from './sm-functions/calculate';
-import { addNFT } from './sm-functions/addNFT';
+import { insertAccount } from './helpers/account-utils'
+import { calculate2 } from './contract-functions/calculate2';
+import { getMsgSender } from './contract-functions/getMsgSender';
+import { addNFT } from './contract-functions/addNFT';
+import { compileGreetingContract } from './contract-compilers/compileContracts';
+import { compileNftContracts } from './contract-compilers/compileNftContracts';
+import { getGreeterDeploymentBytecode } from './contract-compilers/getGreeterDeploymentBytecode';
+import { getNftDeploymentBytecode } from './contract-compilers/getNftDeploymentBytecode';
+import { testing } from './tests/testing';
+import { deployGreetingContract } from './contract-compilers/deployGreetingContract';
+import { deployNFTContract } from './contract-compilers/deployNFTContract';
 const solc = require('solc')
 const cors = require('cors')
 const Util = require("util");
 
 
 
-const INITIAL_GREETING = 'Hello, World!'
-const SECOND_GREETING = 'Hola, Mundo!'
+export const INITIAL_GREETING = 'Hello, Helmi!'
+export const SECOND_GREETING = 'Hola, Mundo!'
 
 
-let vm: VM
-let contractAddress: Address 
+export let vm: VM
+export let contractAddress: Address 
 let contractAddressNft: Address 
-let accountAddress: Address
-let solcOutput: any
+export let accountAddress: Address
+export let solcOutput: any
 let solcNftOutput:any
-let deployed: boolean = false
+export let deployed: boolean = false
 let walletAddress: string
-let importedAccountPK: Buffer
-let evmAddresses : Map<string,string> = new Map<string,string>()
-let balances : Map<Address, Number> = new Map<Address,Number>()
+export let importedAccountPK: Buffer
+let evmAddresses : Map<string,string> = new Map<string,string>() // addresses in web server => addresses in evm
+let balances : Map<Address, Number> = new Map<Address,Number>() //addresses in evm => balances
 
 
 
@@ -43,12 +44,12 @@ let balances : Map<Address, Number> = new Map<Address,Number>()
  *
  * For more info about it, go to https://solidity.readthedocs.io/en/v0.5.10/using-the-compiler.html#compiler-input-and-output-json-description
  */
-function getSolcInput() {
+export function getSolcInput() {
   return {
     language: 'Solidity',
     sources: {
-      'helpers/Greeter.sol': {
-        content: readFileSync(join(__dirname, 'helpers', 'Greeter.sol'), 'utf8'),
+      'contracts/Greeter.sol': {
+        content: readFileSync(join(__dirname, 'contracts', 'Greeter.sol'), 'utf8'),
       },
       // If more contracts were to be compiled, they should have their own entries here
     },
@@ -68,12 +69,12 @@ function getSolcInput() {
   }
 }
 
-function getSolcInputNFT() {
+export function getSolcInputNFT() {
   return {
     language: 'Solidity',
     sources: {
-      'helpers/nft.sol': {
-        content: readFileSync(join(__dirname, 'helpers', 'nft.sol'), 'utf8'),
+      'contracts/nft.sol': {
+        content: readFileSync(join(__dirname, 'contracts', 'nft.sol'), 'utf8'),
       },
       // If more contracts were to be compiled, they should have their own entries here
     },
@@ -98,7 +99,7 @@ function getSolcInputNFT() {
  * @param path : the import path of the imported contract/library as declared in the smart contract that is being compiled
  * @returns the content of the the imported smart contract in ut8 format, after correcting the path, to be compiled
  */
-function findImports(path:any) {
+export function findImports(path:any) {
   console.log("***************************")
   console.log("Now compiling imported smart contract with path of:", path)
   if(path[0]==='@'){
@@ -111,107 +112,7 @@ function findImports(path:any) {
   }
 
 }
-/**
- * This function compiles all the contracts in `contracts/` and returns the Solidity Standard JSON
- * output. If the compilation fails, it returns `undefined`.
- *
- * To learn about the output format, go to https://solidity.readthedocs.io/en/v0.5.10/using-the-compiler.html#compiler-input-and-output-json-description
- */
-function compileContracts() {
-  const input = getSolcInput()
-  const output = JSON.parse(solc.compile(JSON.stringify(input),  {import: findImports}))
 
-  let compilationFailed = false
-
-  if (output.errors) {
-    for (const error of output.errors) {
-      if (error.severity === 'error') {
-        console.error(error.formattedMessage)
-        compilationFailed = true
-      } else {
-        console.warn(error.formattedMessage)
-      }
-    }
-  }
-
-  if (compilationFailed) {
-    return undefined
-  }
-  console.log('compilation output: ', output.contracts['helpers/Greeter.sol'].Greeter.abi)
-  return output
-}
-function compileNftContracts() {
-  
-  const nftInput = getSolcInputNFT()
-  
-  const nftOutput = JSON.parse(solc.compile(JSON.stringify(nftInput),  {import: findImports}))
-
-  let compilationFailed = false
-
-  if (nftOutput.errors) {
-    for (const error of nftOutput.errors) {
-      if (error.severity === 'error') {
-        console.error(error.formattedMessage)
-        compilationFailed = true
-      } else {
-        console.warn(error.formattedMessage)
-      }
-    }
-  }
-
-  if (compilationFailed) {
-    return undefined
-  }
-  console.log('compilation output: ', nftOutput.contracts['helpers/nft.sol'].MyNFT.abi)
-  return nftOutput
-}
-
-function getGreeterDeploymentBytecode(solcOutput: any): any {
-  return solcOutput.contracts['helpers/Greeter.sol'].Greeter.evm.bytecode.object
-}
-function getNftDeploymentBytecode(solcOutput: any): any {
-  return solcOutput.contracts['helpers/nft.sol'].MyNFT.evm.bytecode.object
-}
-
-
-
-/**
- * 
- * @param vm 
- * @param senderPrivateKey 
- * @param deploymentBytecode 
- * @param greeting 
- * @returns 
- */
-async function deployContract(
-  vm: VM,
-  senderPrivateKey: Buffer,
-  deploymentBytecode: Buffer,
-  greeting: string
-): Promise<Address> {
-
-  // Contracts are deployed by sending their deployment bytecode to the address 0
-  // The contract params should be abi-encoded and appended to the deployment bytecode.
-  const data = encodeDeployment(deploymentBytecode.toString('hex'), {
-    types: ['string'],
-    values: [greeting],
-  })
-  console.log('deployment data ' ,data)
-  const txData = {
-    data,
-    nonce: await getAccountNonce(vm, senderPrivateKey),
-  }
-
-  const tx = Transaction.fromTxData(buildTransaction(txData)).sign(senderPrivateKey)
-
-  const deploymentResult = await vm.runTx({ tx })
-
-  if (deploymentResult.execResult.exceptionError) {
-    throw deploymentResult.execResult.exceptionError
-  }
-
-  return deploymentResult.createdAddress!
-}
 
 
 function populateAccounts(importedBalances: any){
@@ -247,95 +148,32 @@ async function launchEVM() {
   const bytecode = getGreeterDeploymentBytecode(solcOutput)
   const bytecodeNft= getNftDeploymentBytecode(solcNftOutput)
   console.log('Deploying the contract...')
+ 
+  function tostring(elements: any) {
+    var result : string[] =[]
+    for (var i = 0; i<elements.length; i++){
+      result[i]=elements[i].toString()
+    }
+    return result
+  }
+  //contractAddress = await deployGreetingContract(vm, importedAccountPK, bytecode, INITIAL_GREETING, tostring(Array.from(balances.keys())), Array.from(balances.values()) )
   
 
-  contractAddress = await deployContract(vm, importedAccountPK, bytecode, INITIAL_GREETING)
-  contractAddressNft = await deployContract(vm,importedAccountPK,bytecodeNft,INITIAL_GREETING)
+  contractAddress = await deployGreetingContract(vm, importedAccountPK, bytecode, INITIAL_GREETING,tostring(Array.from(balances.keys())), Array.from(balances.values()))
+  contractAddressNft = await deployNFTContract(vm,importedAccountPK,bytecodeNft,INITIAL_GREETING)
 
   console.log('Contract address:', contractAddress.toString())
   console.log("EVM LAUNCHED SUCCESSFULLY \n-------------------------------------------------")
+  console.log("getting balances from evm")
+  //var rrr = await getBalances(vm, contractAddress, accountAddress )
+  //console.log(rrr)
 }
-
-
-async function testing() {
-
-  console.log("Starting testing evm \n------------------------------------------------")
-  const greeting = await getGreeting(vm, contractAddress, accountAddress)
-
-  console.log('Greeting:', greeting)
-
-  assert.equal(greeting, INITIAL_GREETING)
-
-  console.log('Changing greeting...')
-
-  await setGreeting(vm, importedAccountPK, contractAddress, SECOND_GREETING)
-
-  const greeting2 = await getGreeting(vm, contractAddress, accountAddress)
-
-  console.log('Greeting:', greeting2)
-
-  assert.equal(greeting2, SECOND_GREETING)
-
-
-  console.log('testing calculation...')
-
-  const result = await calculate(vm, importedAccountPK, contractAddress, 3,4)
-
-  console.log('calculation result is: ', result)
-  
-  
-  const result2 = await calculate2(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[2], 6,4)
-  console.log('result2 is: ', result2)
-
-  
-
-  // Now let's look at what we created. The transaction
-  // should have created a new account for the contract
-  // in the state. Let's test to see if it did.
-
-  const createdAccount = await vm.stateManager.getAccount(contractAddress)
-
-  console.log('-------results-------')
-  console.log('nonce: ' + createdAccount.nonce.toString())
-  console.log('balance in wei: ', createdAccount.balance.toString())
-  console.log('stateRoot: 0x' + createdAccount.stateRoot.toString('hex'))
-  console.log('codeHash: 0x' + createdAccount.codeHash.toString('hex'))
-  console.log('---------------------')
-
-  console.log('Everything ran correctly!')
-  
-
-
-  deployed = true
-
-
-
-  
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 //main
 console.log('Compiling...')
 
-  solcOutput = compileContracts() 
+  solcOutput = compileGreetingContract() 
   if (solcOutput === undefined) {
     throw new Error('Compilation failed')
   } else {
@@ -400,7 +238,7 @@ router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, re
  
 router.get('/msg-sender',async (req: Request, res: Response) => {
  
-  let msgSender  = await getMsgSender(vm, contractAddress, accountAddress, solcOutput.contracts['helpers/Greeter.sol'].Greeter.abi[3])
+  let msgSender  = await getMsgSender(vm, contractAddress, accountAddress, solcOutput.contracts['contracts/Greeter.sol'].Greeter.abi[4])
   console.log("request received to evm msg sender ", msgSender)
   console.log("request received from web msg-sender: ", evmAddresses.get(msgSender))
   res.json(evmAddresses.get(msgSender))
@@ -430,7 +268,7 @@ router.post('/deploy', async (req: Request, res:Response) => {
     console.log("deployment completed")   
     console.log("contract address is ", contractAddress.toString())
     console.log("-----------------------------------------------")
-    await testing()
+    await testing(deployed)
     res.json({"deployed": true,
               "contract Address": contractAddress.toString(),
               "account Address": accountAddress.toString(),

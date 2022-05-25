@@ -33,8 +33,7 @@ class Stake {
 
 
 
-    //this function is what determines the leader for each block add operation. Currently it's based a simple highest staked value each time.
-    //But 
+
     /** 
      * this function is what determines the leader for each block add operation. Currently it's based a simple highest staked value each time.
         But it should be changed to a more complicated function that assigns probability to each staker with the highest probability of being leader
