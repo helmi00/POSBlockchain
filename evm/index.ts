@@ -13,6 +13,7 @@ import { getMsgSender } from './sm-functions/getMsgSender';
 import { setGreeting } from './sm-functions/setGreeting';
 import { getGreeting } from './sm-functions/getGreeting';
 import { calculate } from './sm-functions/calculate';
+import { addNFT } from './sm-functions/addNFT';
 const solc = require('solc')
 const cors = require('cors')
 const Util = require("util");
@@ -25,8 +26,10 @@ const SECOND_GREETING = 'Hola, Mundo!'
 
 let vm: VM
 let contractAddress: Address 
+let contractAddressNft: Address 
 let accountAddress: Address
 let solcOutput: any
+let solcNftOutput:any
 let deployed: boolean = false
 let walletAddress: string
 let importedAccountPK: Buffer
@@ -65,7 +68,30 @@ function getSolcInput() {
   }
 }
 
-
+function getSolcInputNFT() {
+  return {
+    language: 'Solidity',
+    sources: {
+      'helpers/nft.sol': {
+        content: readFileSync(join(__dirname, 'helpers', 'nft.sol'), 'utf8'),
+      },
+      // If more contracts were to be compiled, they should have their own entries here
+    },
+    settings: {
+     
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      evmVersion: 'petersburg',
+      outputSelection: {
+        '*': {
+          '*': ['abi', 'evm.bytecode'],
+        },
+      },
+    },
+  }
+}
 
 /**
  * 
@@ -85,15 +111,6 @@ function findImports(path:any) {
   }
 
 }
-
-
-
-
-
-
-
-
-
 /**
  * This function compiles all the contracts in `contracts/` and returns the Solidity Standard JSON
  * output. If the compilation fails, it returns `undefined`.
@@ -102,9 +119,7 @@ function findImports(path:any) {
  */
 function compileContracts() {
   const input = getSolcInput()
-  
   const output = JSON.parse(solc.compile(JSON.stringify(input),  {import: findImports}))
-  
 
   let compilationFailed = false
 
@@ -125,11 +140,38 @@ function compileContracts() {
   console.log('compilation output: ', output.contracts['helpers/Greeter.sol'].Greeter.abi)
   return output
 }
+function compileNftContracts() {
+  
+  const nftInput = getSolcInputNFT()
+  
+  const nftOutput = JSON.parse(solc.compile(JSON.stringify(nftInput),  {import: findImports}))
+
+  let compilationFailed = false
+
+  if (nftOutput.errors) {
+    for (const error of nftOutput.errors) {
+      if (error.severity === 'error') {
+        console.error(error.formattedMessage)
+        compilationFailed = true
+      } else {
+        console.warn(error.formattedMessage)
+      }
+    }
+  }
+
+  if (compilationFailed) {
+    return undefined
+  }
+  console.log('compilation output: ', nftOutput.contracts['helpers/nft.sol'].MyNFT.abi)
+  return nftOutput
+}
 
 function getGreeterDeploymentBytecode(solcOutput: any): any {
   return solcOutput.contracts['helpers/Greeter.sol'].Greeter.evm.bytecode.object
 }
-
+function getNftDeploymentBytecode(solcOutput: any): any {
+  return solcOutput.contracts['helpers/nft.sol'].MyNFT.evm.bytecode.object
+}
 
 
 
@@ -203,12 +245,12 @@ async function launchEVM() {
   
 
   const bytecode = getGreeterDeploymentBytecode(solcOutput)
-
+  const bytecodeNft= getNftDeploymentBytecode(solcNftOutput)
   console.log('Deploying the contract...')
   
 
   contractAddress = await deployContract(vm, importedAccountPK, bytecode, INITIAL_GREETING)
-  
+  contractAddressNft = await deployContract(vm,importedAccountPK,bytecodeNft,INITIAL_GREETING)
 
   console.log('Contract address:', contractAddress.toString())
   console.log("EVM LAUNCHED SUCCESSFULLY \n-------------------------------------------------")
@@ -299,7 +341,12 @@ console.log('Compiling...')
   } else {
     console.log('Compiled the contract')
   }
-
+  solcNftOutput = compileNftContracts() 
+  if (solcOutput === undefined) {
+    throw new Error('Compilation failed')
+  } else {
+    console.log('Compiled the contract')
+  }
 
 //evm express server creation
 const evm_server = express();
@@ -392,7 +439,14 @@ router.post('/deploy', async (req: Request, res:Response) => {
   
 })
 
+router.post("/mintNFT",async (req:Request,res:Response)=>{
+let tokenId=req.body.tokenuri;
+let price = req.body.price;
+let id =await addNFT(vm,importedAccountPK,contractAddressNft,tokenId,price)
+console.log("nft id",id)
 
+res.send({"tokenId":id})
+})
 
 
 
