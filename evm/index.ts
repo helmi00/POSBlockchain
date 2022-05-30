@@ -1,7 +1,7 @@
 import express, {application, Request, Response} from 'express';
 
 import { join } from 'path'
-import { readFileSync } from 'fs'
+import { readFileSync,createReadStream } from 'fs'
 import { Address } from 'ethereumjs-util'
 import VM from '@ethereumjs/vm'
 import { insertAccount } from './helpers/account-utils'
@@ -15,11 +15,23 @@ import { getNftDeploymentBytecode } from './contract-compilers/getNftDeploymentB
 import { testing } from './tests/testing';
 import { deployGreetingContract } from './contract-compilers/deployGreetingContract';
 import { deployNFTContract } from './contract-compilers/deployNFTContract';
+import { getallitem } from './contract-functions/getallitem';
+import { abi_index } from './helpers/abi_index';
+import { reselleMarketItems } from './contract-functions/reselleMarketItems';
+import { fetchownerItems } from './contract-functions/fetchownerItems';
+import { fetchMarketItems } from './contract-functions/fetchMarketItems';
+import { createMarketSale } from './contract-functions/createMarketSale';
+import { getowneritems } from './contract-functions/getowneritems';
+import { updateprice } from './contract-functions/updateprice';
+import { updateforselle } from './contract-functions/updateforselle';
+import { Seleitem } from './contract-functions/Selleitem';
+import { gettokenuri } from './contract-functions/gettokenuri';
 const solc = require('solc')
 const cors = require('cors')
 const Util = require("util");
-
-
+const pinataSDK = require('@pinata/sdk');
+const pinata = pinataSDK('66c130be56b3c2927ca1', '4ce5948aa24da4a9057abe94102d24f04ebcde790f558e7e6cbccfd7918664b4');
+const formidable = require('formidable');
 
 export const INITIAL_GREETING = 'Hello, Helmi!'
 export const SECOND_GREETING = 'Hola, Mundo!'
@@ -36,7 +48,6 @@ let walletAddress: string
 export let importedAccountPK: Buffer
 let evmAddresses : Map<string,string> = new Map<string,string>() // addresses in web server => addresses in evm
 let balances : Map<Address, Number> = new Map<Address,Number>() //addresses in evm => balances
-
 
 
 /**
@@ -192,7 +203,16 @@ evm_server.use(express.json());
 //evm_server.use(cors({origin: 'http://localhost:3001'}))
 const router = express.Router({strict:true});
 evm_server.use('/test', router);
- 
+
+//test authent to pinata
+pinata.testAuthentication().then((result:any) => {
+  //handle successful authentication here
+  console.log(result);
+}).catch((err:any) => {
+  //handle error here
+  console.log(err);
+});
+
 const EVM_PORT = process.argv[2] || 4001;
  
 var s = evm_server.listen(EVM_PORT, () => {
@@ -278,18 +298,150 @@ router.post('/deploy', async (req: Request, res:Response) => {
 })
 
 router.post("/mintNFT",async (req:Request,res:Response)=>{
-let tokenId=req.body.tokenuri;
-let price = req.body.price;
-let id =await addNFT(vm,importedAccountPK,contractAddressNft,tokenId,price)
-console.log("nft id",id)
+/* let tokenId=req.body.tokenuri;
+let price = req.body.price; */
 
-res.send({"tokenId":id})
+const form = formidable({ multiples: true });
+
+form.parse(req, (err:any, fields:any, files:any) => {
+  if (err) {
+    console.log("error from parse")
+    return;
+  }
+  console.log("res",files.file.filepath,"   ",fields.token_name,fields.price)
+  const readableStreamForFile = createReadStream(files.file.filepath);
+const options = {
+    pinataMetadata: {
+        name: fields.token_name,
+        keyvalues: {
+            customKey: 'customValue',
+            customKey2: 'customValue2'
+        }
+    },
+    pinataOptions: {
+        cidVersion: 0
+    }
+};
+ pinata.pinFileToIPFS(readableStreamForFile, options).then(async(result:any) => {
+    //handle results here
+    console.log(result.IpfsHash);
+    let id =await addNFT(vm,importedAccountPK,contractAddressNft,result.IpfsHash,fields.price)
+    res.status(200).json({ "id":id });
+console.log("nft id",id)
+}).catch((err:any) => {
+    //handle error here
+    console.log(err);
+});
+  
+});
+/* let id =await addNFT(vm,importedAccountPK,contractAddressNft,tokenId,price)
+    res.status(200).json({ "id":id }); */
+})
+
+router.get("/getallitem",async(req:Request,res:Response)=>{
+  //console.log("abi",solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchMarketItems", solcNftOutput)])
+ let Items= new Array()
+ let all_item = await getallitem(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("getallitem", solcNftOutput)])
+  for(var i =0 ; i<all_item;i++){
+  await fetchMarketItems(vm, contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchMarketItems", solcNftOutput)], i+1).then((resul:any)=>{
+    console.log("id result",resul.tokenId)
+    if(resul.owner!="0x0000000000000000000000000000000000000000")
+    {Items.push(resul)}
+    //res.status(200).json({"tokenId":resul.tokenId,"seller":resul.Seller,"owner":resul.owner,"price":resul.price,"sold":resul.sold});
+  }).catch((err)=>{
+    console.log("id err",err)
+    res.status(500).json({err});
+  })
+
+  }
+  console.log("id",Items)
+  res.status(200).json({Items})
 })
 
 
+router.post("/createMarketSale",async(req:Request,resp:Response)=>{
+  let tokenId= req.body.tokenId;
+  let price = req.body.price;
+  await createMarketSale(vm,contractAddressNft,importedAccountPK,tokenId,price).then((result:any)=>{
+    resp.status(200).json({"state":"ok"})
+  }).catch((err:any)=>{
+    console.error("errur createMarketSale",err)
+    resp.status(500).json({err})
+  })
+})
+
+router.get("/fetchownerItems",async(req:Request,res:Response)=>{
+  let Items= new Array()
+await getallitem(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("getallitem", solcNftOutput)]).then(async(owner_item:any)=>{
+  console.log(" nb owner item",parseInt(owner_item))
+  for(var i =0 ; i<owner_item;i++){
+  await fetchownerItems(vm, contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchownerItems", solcNftOutput)], i+1).then((resul:any)=>{
+    console.log("owner result",resul.tokenId)
+    if(resul.owner!="0x0000000000000000000000000000000000000000")
+    {Items.push(resul)}
+    //res.status(200).json({"tokenId":resul.tokenId,"seller":resul.Seller,"owner":resul.owner,"price":resul.price,"sold":resul.sold});
+  }).catch((err)=>{
+    console.log("id err",err)
+    res.status(500).json({err});
+  })
+
+  }
+}).catch((err:any)=>{
+  console.log("err fetch owner item",err)
+  res.status(500).send(err)
+})
+ 
+  console.log("owner item",Items)
+  res.status(200).json({Items})
+})
+
+router.post("/updateprice",async(req:Request,res:Response)=>{
+  let tokenId = req.body.tokenId
+  let price = req.body.price
+  await updateprice(vm,contractAddressNft,importedAccountPK,tokenId,price).then((result:any)=>{
+    console.log("update price",result)
+    if(result){
+      res.status(200).send(true)
+    }else res.status(200).send(false)
+  }).catch((err:any)=>{
+    console.log("update price error",err)
+    res.status(500).send(err)
+  })
+})
+
+router.post("/updateforselle",async(req:Request,res:Response)=>{
+  let tokenId = req.body.tokenId
+  await updateforselle(vm,contractAddressNft,importedAccountPK,tokenId).then((result:any)=>{
+   res.status(200).send(result)
+  }).catch((err:any)=>{
+    console.log("error updateforselle",err)
+    res.status(500).send(err)
+  })
+})
+
+router.post("/Seleitem",async(req:Request,res:Response)=>{
+  let tokenId = req.body.tokenId
+  let price = req.body.price
+  await Seleitem(vm,contractAddressNft,importedAccountPK,tokenId,price).then((result:any)=>{
+    console.log("selle item ok ")
+    res.status(200)
+  }).catch((err:any)=>{
+    console.log("error sell item",err)
+    res.status(500).send(err)
+  })
+})
 
 
-
+router.get("/gettokenuri",async(req:Request,res:Response)=>{
+  let tokenId = req.body.tokenId
+  await gettokenuri(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("gettokenuri", solcNftOutput)],tokenId).then((result:any)=>{
+    console.log("token uri ",result)
+    res.status(200).send(result)
+  }).catch((err:any)=>{
+    console.log("get token uri error",err)
+    res.status(500).send(err)
+  })
+})
 
 
 process.on('SIGINT', () => {

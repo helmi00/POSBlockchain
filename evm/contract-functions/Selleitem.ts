@@ -4,8 +4,8 @@ import VM from '@ethereumjs/vm';
 import { buildTransaction, encodeFunction } from '../helpers/tx-builder';
 import { getAccountNonce } from '../helpers/account-utils';
 
-export async function Selleitem(vm: VM, contractAddress: Address, senderPrivateKey: Buffer, tokenId: Number, proposeprice: Number) {
-  const data = encodeFunction('Selleitem', {
+export async function Seleitem(vm: VM, contractAddress: Address, senderPrivateKey: Buffer, tokenId: Number, proposeprice: Number) {
+  const data = encodeFunction('Seleitem', {
     types: ['uint256', 'uint256'],
     values: [tokenId, proposeprice],
   });

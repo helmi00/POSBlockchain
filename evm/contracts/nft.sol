@@ -12,7 +12,8 @@ contract MyNFT is ERC721URIStorage, Ownable {
 
     Counters.Counter private _tokenIds;
     Counters.Counter private _itemsSold;
-
+    
+    
     struct MarketItem {
         uint256 tokenId;
         address seller;
@@ -27,14 +28,14 @@ contract MyNFT is ERC721URIStorage, Ownable {
         uint256 price,
         bool sold
     );
-    mapping(uint256 => MarketItem) private idToMarketItem;
-
+    mapping(uint => MarketItem) private idToMarketItem;
     constructor() ERC721("MyNFT", "NFT") {}
+
 
     function mintNFT(string memory tokenURI, uint256 price)
         public
         onlyOwner
-        returns (uint256) {
+        returns (uint256){
         _tokenIds.increment();
 
         uint256 newItemId = _tokenIds.current();
@@ -52,7 +53,7 @@ contract MyNFT is ERC721URIStorage, Ownable {
             tokenId,
             owner(),
             address(this),
-            price,
+            price ,
             false
         );
 
@@ -67,122 +68,89 @@ contract MyNFT is ERC721URIStorage, Ownable {
     }
 
     /*get all market items*/
-    function reselleMarketItems(uint256 id)
-        public
-        view
-        returns (
-            uint256 tokenId,
-            address owner,
-            address seller,
-            uint256 price,
-            bool sold
-        )
-    {
-        if (
-            (idToMarketItem[id].owner != address(this)) &&
-            idToMarketItem[id].sold == false
-        ) {
-            MarketItem storage currentItem = idToMarketItem[id];
-            return (
-                currentItem.tokenId,
-                currentItem.owner,
-                currentItem.seller,
-                currentItem.price,
-                currentItem.sold
-            );
-        }
+    function reselleMarketItems(uint id) public view returns ( uint256 tokenId , address owner  ,address seller,uint256 price ,bool sold )  {
+      
+            if ((idToMarketItem[id].owner != address(this)) && idToMarketItem[id].sold == false) {
+                MarketItem storage currentItem = idToMarketItem[id];
+                return (currentItem.tokenId,currentItem.owner,currentItem.seller,currentItem.price,currentItem.sold);
+            }
+        
     }
 
     /* Returns all unsold market items */
-    function fetchMarketItems(uint256 id)
-        public
-        view
-        returns (
-            uint256 tokenId,
-            address owner,
-            address seller,
-            uint256 price,
-            bool sold
-        ){
-        if (idToMarketItem[id].owner == address(this)) {
-            MarketItem storage currentItem = idToMarketItem[id];
-            return (
-                currentItem.tokenId,
-                currentItem.owner,
-                currentItem.seller,
-                currentItem.price,
-                currentItem.sold
-            );
-        }
+    function fetchMarketItems(uint256 id) public view returns ( uint256 tokenId , address owner  ,address seller,uint256 price ,bool sold ) {
+      
+            if (idToMarketItem[id].owner == address(this)) {
+                MarketItem storage currentItem = idToMarketItem[id];
+                return (currentItem.tokenId,currentItem.owner,currentItem.seller,currentItem.price,currentItem.sold);
+            }
+        
+        
     }
 
-    function getallitem() public view returns (uint256 num_all_item) {
+    function getowneritems() public view returns(uint256 num_owner_item){
+         uint256 itemCount = _tokenIds.current();
+         uint256 item =0;
+         for(uint256 i =0 ;i<itemCount;i++){
+             if(idToMarketItem[i].owner==msg.sender){
+                 item=item+1;
+             }
+         }
+         return item;
+    }
+
+
+    function getallitem() public view returns( uint256 num_all_item){
         uint256 itemCount = _tokenIds.current();
-        return itemCount;
+        return  itemCount;
     }
-
     /* Creates the sale of a marketplace item */
     /* Transfers ownership of the item, as well as funds between parties */
-    function createMarketSale(uint256 tokenId, uint256 proposeprice) public {
-        uint256 price = idToMarketItem[tokenId].price;
-        //address seller = idToMarketItem[tokenId].seller;
-        require(
-            proposeprice == price,
-            "Please submit the asking price in order to complete the purchase"
-        );
-        idToMarketItem[tokenId].owner = (msg.sender);
-        idToMarketItem[tokenId].sold = true;
-        idToMarketItem[tokenId].seller = (address(0));
-        _itemsSold.increment();
-        _transfer(address(this), msg.sender, tokenId);
+    function createMarketSale(
+      uint256 tokenId,uint256 proposeprice
+      ) public  {
+      uint price = idToMarketItem[tokenId].price;
+      //address seller = idToMarketItem[tokenId].seller;
+      require(proposeprice== price, "Please submit the asking price in order to complete the purchase");
+      idToMarketItem[tokenId].owner = (msg.sender);
+      idToMarketItem[tokenId].sold = true;
+      idToMarketItem[tokenId].seller = (address(0));
+      _itemsSold.increment();
+      _transfer(address(this), msg.sender, tokenId);
     }
-
     /* Returns owner market items */
-    function fetchownerItems(uint256 id)
-        public
-        view
-        returns (
-            uint256 tokenId,
-            address owner,
-            address seller,
-            uint256 price,
-            bool sold
-        ){
-        if (idToMarketItem[id].owner == msg.sender) {
-            MarketItem storage currentItem = idToMarketItem[id];
-            return (
-                currentItem.tokenId,
-                currentItem.owner,
-                currentItem.seller,
-                currentItem.price,
-                currentItem.sold
-            );
-        }
+    function fetchownerItems(uint id) public view returns ( uint256 tokenId , address owner  ,address seller,uint256 price ,bool sold ) {
+      
+            if (idToMarketItem[id].owner == msg.sender) {
+                MarketItem storage currentItem = idToMarketItem[id];
+                return (currentItem.tokenId,currentItem.owner,currentItem.seller,currentItem.price,currentItem.sold);
+            }
     }
 
-    /* update price only owner */
-    function updateprice(uint256 tokenId, uint256 proposeprice)
-        public
-        returns (bool){
-        if (idToMarketItem[tokenId].owner == msg.sender) {
-            require(
-                proposeprice > 0,
-                "Please submit the asking price in order to complete the purchase"
-            );
-            idToMarketItem[tokenId].price = proposeprice;
-            return true;
-        } else return false;
+     /* update price only owner */
+    function updateprice(
+      uint256 tokenId,uint256 proposeprice
+      ) public returns (bool ) {
+       if (idToMarketItem[tokenId].owner == msg.sender) {
+      require(proposeprice>0, "Please submit the asking price in order to complete the purchase");
+      idToMarketItem[tokenId].price = proposeprice;
+      return true;
+       }
+       else return false;
     }
-
-    /* update price only owner */
-    function updateforselle(uint256 tokenId) public returns (bool) {
-        if (idToMarketItem[tokenId].owner == msg.sender) {
-            idToMarketItem[tokenId].sold = false;
-            return true;
-        } else return false;
+       /* update price only owner */
+    function updateforselle(
+      uint256 tokenId
+      ) public returns (bool ) {
+       if (idToMarketItem[tokenId].owner == msg.sender) {
+      
+      idToMarketItem[tokenId].sold = false;
+      return true;
+       }
+       else return false;
     }
      /* Transfers ownership of the item, as well as funds between parties */
-    function Selleitem(
+    function Seleitem(
       uint256 tokenId,uint256 proposeprice
       ) public  {
       uint256 price = idToMarketItem[tokenId].price;
@@ -192,5 +160,9 @@ contract MyNFT is ERC721URIStorage, Ownable {
       idToMarketItem[tokenId].sold = false;
       idToMarketItem[tokenId].seller =seller;
       _transfer(seller, msg.sender, tokenId);
+    }
+    function gettokenuri(uint256 tokenid) public view returns(string memory){
+        string memory uri = tokenURI(tokenid) ;
+        return uri;
     }
 }

@@ -1,6 +1,6 @@
-function abi_index(method: string, solcOutput: any) {
+export function abi_index(method: string, solcOutput: any) {
   //console.log((solcOutput.contracts['helpers/nft.sol'].MyNFT.abi))
-  const data = solcOutput.contracts['helpers/nft.sol'].MyNFT.abi;
+  const data = solcOutput.contracts['contracts/nft.sol'].MyNFT.abi;
   let i: number = 0;
   var test: boolean = true;
   while (test) {

@@ -2,9 +2,9 @@ import { Address } from 'ethereumjs-util';
 import VM from '@ethereumjs/vm';
 import { defaultAbiCoder as AbiCoder, Interface } from '@ethersproject/abi'
 
-export async function fetchMarketItems(vm: VM, contractAddress: Address, caller: Address, methodabi: object, id: Number) {
+export async function gettokenuri(vm: VM, contractAddress: Address, caller: Address, methodabi: object, id: Number) {
 
-  const sigHash = new Interface([methodabi]).getSighash('fetchMarketItems')
+  const sigHash = new Interface([methodabi]).getSighash('gettokenuri')
 
   const greetResult = await vm.runCall({
     to: contractAddress,
@@ -17,8 +17,8 @@ export async function fetchMarketItems(vm: VM, contractAddress: Address, caller:
     throw greetResult.execResult.exceptionError
   }
 
-  const results = AbiCoder.decode(['tuple(uint256 tokenId,address owner,address Seller,uint256 price,bool sold)'], greetResult.execResult.returnValue)
-  console.log("result market item",results[0])
+  const results = AbiCoder.decode(['string'], greetResult.execResult.returnValue)
+  console.log("resulttoken uri",results[0])
   return results[0]
 }
 
