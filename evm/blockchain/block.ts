@@ -1,9 +1,15 @@
-const SHA256 = require('crypto-js/sha256');
-const ChainUtil = require("../chain-Util");
+import SHA256 from 'crypto-js/sha256';
+import {verifySignature} from "../chain-Util";
 
 
-class Block {
-    constructor(timestamp, lastHash, hash, data, validator, signature) {
+export class Block {
+    timestamp: any;
+    lastHash: any;
+    data: any;
+    validator: any;
+    signature: any;
+    hash:any;
+    constructor(timestamp:any, lastHash:any, hash:any, data:any, validator:any, signature:any) {
         this.timestamp = timestamp;
         this.lastHash = lastHash;
         this.hash = hash;
@@ -24,15 +30,15 @@ class Block {
     }
 
     static genesis(){
-        return new this(`genesis time`, "----", "genesis-hash", []);
+        return new this(`genesis time`, "----", "genesis-hash", [],"","");
     }
 
-    static hash(timestamp, lastHash, data){
+    static hash(timestamp:any, lastHash:any, data:any){
         return SHA256(JSON.stringify(`${timestamp}${lastHash}${data}`)).toString();
     }
 
 
-    static createBlock(lastBlock, data, wallet) {
+    static createBlock(lastBlock:any, data:any, wallet:any) {
         let hash;
         let timestamp = Date.now();
         const lastHash = lastBlock.hash;
@@ -51,29 +57,29 @@ class Block {
 
     
     //function with the purpose of verifying a block's hash is not tampered
-    static blockHash(block){
+    static blockHash(block:any){
         //destructuring
         const {timestamp, lastHash, data} = block;
         return Block.hash(timestamp,lastHash,data);
     }
 
 
-    static signBlockHash(hash, wallet) {
+    static signBlockHash(hash:any, wallet:any) {
         return wallet.sign(hash);
       }
 
 
     
 
-    static verifyBlock(block) {
-    return ChainUtil.verifySignature(
+    static verifyBlock(block:any) {
+    return verifySignature(
       block.validator.slice(2),
       block.signature,
       Block.hash(block.timestamp, block.lastHash, block.data)
     );
     }
 
-    static verifyLeader(block, leader){
+    static verifyLeader(block:any, leader:any){
         return block.validator === leader? true: false;
     }
 
@@ -81,5 +87,3 @@ class Block {
 
     
 }
-
-module.exports = Block;

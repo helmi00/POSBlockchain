@@ -2,10 +2,10 @@ import express, {application, Request, Response} from 'express';
 
 import { join } from 'path'
 import { readFileSync,createReadStream } from 'fs'
-import { Address } from 'ethereumjs-util'
+import { Address,Account } from 'ethereumjs-util'
 import VM from '@ethereumjs/vm'
 import { insertAccount } from './helpers/account-utils'
-import { calculate2 } from './contract-functions/calculate2';
+//import { calculate2 } from './contract-functions/calculate2';
 import { getMsgSender } from './contract-functions/getMsgSender';
 import { addNFT } from './contract-functions/addNFT';
 import { compileGreetingContract } from './contract-compilers/compileContracts';
@@ -26,6 +26,14 @@ import { updateprice } from './contract-functions/updateprice';
 import { updateforselle } from './contract-functions/updateforselle';
 import { Seleitem } from './contract-functions/Selleitem';
 import { gettokenuri } from './contract-functions/gettokenuri';
+import axios, {Axios} from 'axios'
+import { BN } from 'ethereumjs-util/dist/externals'
+import {Blockchain} from './blockchain/blockchain';
+import {P2pserver} from './app/p2p-server';
+import {Wallet} from './wallet/wallet';
+import {TransactionPool} from './wallet/transaction-pool';
+import { VALIDATOR_FEE } from './config';
+import {Block} from './blockchain/block';
 const solc = require('solc')
 const cors = require('cors')
 const Util = require("util");
@@ -36,8 +44,7 @@ const formidable = require('formidable');
 export const INITIAL_GREETING = 'Hello, Helmi!'
 export const SECOND_GREETING = 'Hola, Mundo!'
 
-
-export let vm: VM
+let vm: VM
 export let contractAddress: Address 
 let contractAddressNft: Address 
 export let accountAddress: Address
@@ -48,7 +55,7 @@ let walletAddress: string
 export let importedAccountPK: Buffer
 let evmAddresses : Map<string,string> = new Map<string,string>() // addresses in web server => addresses in evm
 let balances : Map<Address, Number> = new Map<Address,Number>() //addresses in evm => balances
-
+let accountPk:any
 
 /**
  * This function creates the input for the Solidity compiler.
@@ -135,20 +142,27 @@ function populateAccounts(importedBalances: any){
   console.log("populated evm addresses: ", evmAddresses)
 }
 
-async function launchEVM() {
-  if(deployed == true) return;
+async function updatevm(vm:VM,p2p:P2pserver) {
+  console.log("*************************",vm.stateManager.getContractCode(accountAddress))
+  vm=await VM.create(p2pserver.getvm())
+  await insertAccount(vm, accountAddress)
+  return vm
+}
 
-  const accountPk = Buffer.from(
+async function launchEVM() {
+  
+
+   accountPk = Buffer.from(
     'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',
     'hex'
   )
 
-   vm = new VM()
+   
   
 
 
-  importedAccountPK = Buffer.from(walletAddress,'hex')
-  accountAddress = walletAddress == undefined ? Address.fromPrivateKey(accountPk): Address.fromPrivateKey(importedAccountPK)
+  //importedAccountPK = Buffer.from(walletAddress,'hex')
+  accountAddress =Address.fromPrivateKey(accountPk)
 
   console.log('Account: ', accountAddress.toString())
   await insertAccount(vm, accountAddress)
@@ -170,17 +184,30 @@ async function launchEVM() {
   //contractAddress = await deployGreetingContract(vm, importedAccountPK, bytecode, INITIAL_GREETING, tostring(Array.from(balances.keys())), Array.from(balances.values()) )
   
 
-  contractAddress = await deployGreetingContract(vm, importedAccountPK, bytecode, INITIAL_GREETING,tostring(Array.from(balances.keys())), Array.from(balances.values()))
-  contractAddressNft = await deployNFTContract(vm,importedAccountPK,bytecodeNft,INITIAL_GREETING)
+  contractAddress = await deployGreetingContract(vm, accountPk, bytecode, INITIAL_GREETING,tostring(Array.from(balances.keys())), Array.from(balances.values()))
+  contractAddressNft = await deployNFTContract(vm,accountPk,bytecodeNft,INITIAL_GREETING)
 
-  console.log('Contract address:', contractAddress.toString())
+  console.log('Contract nft address:', contractAddressNft.toString())
   console.log("EVM LAUNCHED SUCCESSFULLY \n-------------------------------------------------")
   console.log("getting balances from evm")
   //var rrr = await getBalances(vm, contractAddress, accountAddress )
   //console.log(rrr)
 }
-
-
+let vm1:any
+/* function sendvm(){
+  axios.get<VM>("http://localhost:3001/syncvm").then(async(result:any)=>{
+    console.log("axios get vm",vm.stateManager)
+     vm1 = vm.copy()
+    console.log("vm1 ",accountAddress.toString())
+     
+     vm=await VM.create(result.data)
+     console.log("get vm",vm.stateManager)
+     await insertAccount(vm, accountAddress)
+    
+  }).catch((err:any)=>{
+    console.log("err get vm",err)
+  })
+} */
 //main
 console.log('Compiling...')
 
@@ -203,7 +230,7 @@ evm_server.use(express.json());
 //evm_server.use(cors({origin: 'http://localhost:3001'}))
 const router = express.Router({strict:true});
 evm_server.use('/test', router);
-
+vm = new VM()
 //test authent to pinata
 pinata.testAuthentication().then((result:any) => {
   //handle successful authentication here
@@ -212,15 +239,45 @@ pinata.testAuthentication().then((result:any) => {
   //handle error here
   console.log(err);
 });
+const EVM_PORT = process.env.HTTP_PORT || process.argv[2] || 4001;
+//create a new Blockchain instance
+const blockchain = new Blockchain();
+console.log("blockchain",blockchain)
+  launchEVM().then(async(result)=>{
+    console.log("result launch vm",result)
+  }).catch((err)=>{
+    console.log("err launch vm",err)
+  })
+//create a new transaction pool which will be later decentralized and synchronized using the peer to peer server
+const transactionPool = new TransactionPool();
+console.log("transactionPool",transactionPool)
+const secret = "I am the first leader/node" //Date.now() is used to create a random string for secret
+const wallet = new Wallet(secret); 
 
-const EVM_PORT = process.argv[2] || 4001;
+//console.log("created new wallet for this node with the balance of", wallet.getBalance(blockchain));
+//console.log("and with public key: ", wallet.getPublicKey());
+console.log(wallet.toString());
+
+//passing blockchain as a dependency for peer connection
+const p2pserver = new P2pserver(blockchain, transactionPool, wallet,vm);
+console.log("p2pserver",p2pserver)
+
+updatevm(vm,p2pserver).then((res:any)=>{
+  vm=res;
+  console.log("**************ok")
+}).catch((err:any)=>{
+  console.log("updateevm error",err)
+})
+ 
+//starts the p2pserver
+p2pserver.listen(); 
  
 var s = evm_server.listen(EVM_PORT, () => {
   console.log("evm server is listening on port ", EVM_PORT);
 })
  
  
- 
+
 
 
 
@@ -228,7 +285,7 @@ var s = evm_server.listen(EVM_PORT, () => {
 
 /** EVM SERVER APIs */
  
-router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, res: Response) => {
+/* router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, res: Response) => {
 
   const result3 = await calculate2(vm, 
                                    contractAddress, 
@@ -249,31 +306,32 @@ router.get('/', cors({origin:'https://www.google.com'}), async (req: Request, re
     "result" : result3,
     "sm_adderss": contractAddress.toString()});
 
-})
+}) */
  
  
  
  
  
  
-router.get('/msg-sender',async (req: Request, res: Response) => {
+/* router.get('/msg-sender',async (req: Request, res: Response) => {
  
   let msgSender  = await getMsgSender(vm, contractAddress, accountAddress, solcOutput.contracts['contracts/Greeter.sol'].Greeter.abi[4])
   console.log("request received to evm msg sender ", msgSender)
   console.log("request received from web msg-sender: ", evmAddresses.get(msgSender))
   res.json(evmAddresses.get(msgSender))
   
-})
+}) */
 
 
 
 
-router.post('/deploy', async (req: Request, res:Response) => {
+/* router.post('/deploy', async (req: Request, res:Response) => {
   console.log("deployment request received from blockchain web server with request body of ", req.body)
   
   if(deployed==true) {
     console.log("already deployed \n-----------------------------------------------------")
     res.json({"message": "already deployed"})
+    sendvm()
   }
   else {
     console.log("launching evm and deploying smart contracts")
@@ -292,16 +350,17 @@ router.post('/deploy', async (req: Request, res:Response) => {
     res.json({"deployed": true,
               "contract Address": contractAddress.toString(),
               "account Address": accountAddress.toString(),
+              "evm":vm.stateManager
           })
   }
-  
-})
+  sendvm()
+}) */
 
 router.post("/mintNFT",async (req:Request,res:Response)=>{
-/* let tokenId=req.body.tokenuri;
-let price = req.body.price; */
+let tokenId=req.body.tokenuri;
+let price = req.body.price;
 
-const form = formidable({ multiples: true });
+/* const form = formidable({ multiples: true });
 
 form.parse(req, (err:any, fields:any, files:any) => {
   if (err) {
@@ -333,9 +392,17 @@ console.log("nft id",id)
     console.log(err);
 });
   
-});
-/* let id =await addNFT(vm,importedAccountPK,contractAddressNft,tokenId,price)
-    res.status(200).json({ "id":id }); */
+}); */
+await addNFT(vm,accountPk,contractAddressNft,tokenId,price).then((id:any)=>{
+  p2pserver.setvm(vm)
+  res.status(200).json({ "id":id });
+  
+  // sendvm()
+}).catch((error:any)=>{
+  res.status(500).send(error)
+  console.log("ws add nft error",error)
+})
+    
 })
 
 router.get("/getallitem",async(req:Request,res:Response)=>{
@@ -368,6 +435,7 @@ router.post("/createMarketSale",async(req:Request,resp:Response)=>{
     console.error("errur createMarketSale",err)
     resp.status(500).json({err})
   })
+  
 })
 
 router.get("/fetchownerItems",async(req:Request,res:Response)=>{
@@ -407,6 +475,7 @@ router.post("/updateprice",async(req:Request,res:Response)=>{
     console.log("update price error",err)
     res.status(500).send(err)
   })
+
 })
 
 router.post("/updateforselle",async(req:Request,res:Response)=>{
@@ -417,6 +486,7 @@ router.post("/updateforselle",async(req:Request,res:Response)=>{
     console.log("error updateforselle",err)
     res.status(500).send(err)
   })
+
 })
 
 router.post("/Seleitem",async(req:Request,res:Response)=>{
@@ -429,6 +499,7 @@ router.post("/Seleitem",async(req:Request,res:Response)=>{
     console.log("error sell item",err)
     res.status(500).send(err)
   })
+  
 })
 
 
@@ -444,8 +515,90 @@ router.get("/gettokenuri",async(req:Request,res:Response)=>{
 })
 
 
-process.on('SIGINT', () => {
+
+//Exposed APIs
+
+//api to get the blocks
+evm_server.get('/blocks', (req,res)=>{
+    let l :number=blockchain.chain.length
+    console.log("block length",blockchain.chain[l-1].timestamp)
+  res.json(blockchain.chain);
+
+});
+
+
+//api to add blocks
+evm_server.post('/mine',(req,res)=>{
+  console.log("received request to add a new block");
+
+  const block = blockchain.createBlock(req.body.data, wallet);
+  
+  console.log("new block added ",block);
+
+  p2pserver.syncChain();
+ 
+  res.redirect('/blocks'); 
+
+});
+
+
+
+//api to view transactions in the transaction pool
+evm_server.get('/transactions', (req,res) => {
+  res.json(transactionPool.transactions);
+});
+
+
+//api to create a new transactions
+evm_server.post("/transact", (req, res) => {
+  
+
+  const {to,amount,type} = req.body;
+
+  console.log("received request to make a transaction of type ", type);
+  
+  const transaction = wallet.createTransaction(to, amount, type, blockchain, transactionPool);
+  
+  if(transaction != undefined){    //meaning that transation has actually been created, meaning that the amount is within balance value
+      
+      console.log("created and added transaction to local pool");
+      p2pserver.broadcastTransaction(transaction); //broadcast the newly made transaction to all the local transaction pools of the peers
+      p2pserver.createBlockIfLeaderAndIfThreshholdReached();
+  
+  } else {
+  
+      console.log("transaction is not created nor broadcasted\n-----------------------------------------------------------------");
+  
+  }
+  
+  res.redirect("/transactions");
+
+});
+
+
+evm_server.get('/accounts', (req,res) => {
+  res.json(blockchain.accounts);
+});
+
+
+evm_server.get('/validators', (req,res) => {
+  res.json(blockchain.validators);
+});
+
+
+evm_server.get('/stakers', (req,res) => {
+  res.json(blockchain.stakes.stakedBalances);
+});
+
+
+evm_server.get('/leader', (req, res) => { 
+  res.json({leaderAddress: blockchain.getLeader()})
+})
+
+
+
+/* process.on('SIGINT', () => {
   console.log("Terminating...");
   s.close();
   process.exit(0); 
-});
+}); */

@@ -2,15 +2,15 @@
   "name": "poschain",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "node ./.scripts/dev_script",
     "test:blockchain-1": "nodemon ./app 3001 5001",
     "test:blockchain-2": "nodemon ./app 3002 5002 ws://localhost:5001",
     "test:blockchain-3": "nodemon ./app 3003 5003 ws://localhost:5001,ws://localhost:5002",
-    "test:evm-1": "nodemon ./evm/index.ts 4001",
-    "test:evm-2": "ts-node ./evm/index.ts 4002",
-    "test:evm-3": "ts-node ./evm/index.ts 4003",
+    "test:evm-1": "nodemon ./evm/index.ts 4001 5001",
+    "test:evm-2": "nodemon ./evm/index.ts 4002 5002 ws://localhost:5001",
+    "test:evm-3": "ts-node ./evm/index.ts 4003 5003 ws://localhost:5001,ws://localhost:5002",
     "test:node-1": "start npm run test:evm-1 && timeout 10 && start npm run test:blockchain-1",
     "test:node-2": "start npm run test:evm-2 && timeout 10 && start npm run test:blockchain-2",
     "test:node-3": "start npm run test:evm-3 && timeout 10 && start npm run test:blockchain-3",
@@ -27,6 +27,8 @@
   "devDependencies": {
     "@types/express": "^4.17.2",
     "@types/node-fetch": "^2.6.1",
+    "@types/uuid": "^8.3.4",
+    "@types/ws": "^8.5.3",
     "nodemon": "^2.0.15",
     "ts-node": "^10.7.0",
     "typescript": "^4.6.3"
@@ -46,6 +48,8 @@
     "formidable": "^2.0.1",
     "node-fetch": "^3.2.4",
     "solc": "^0.8.13",
+    "source-map-loader": "^3.0.1",
+    "ts-loader": "^9.3.0",
     "uuid": "^8.3.2",
     "web3": "^1.7.1",
     "ws": "^8.5.0"

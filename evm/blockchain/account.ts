@@ -1,6 +1,8 @@
-const { INITIAL_BALANCE } = require("../config");
+import { INITIAL_BALANCE } from "../config";
 
-class Account {
+export class Account {
+    addresses: string[];
+    balances :any
     constructor() {
         this.addresses = ["0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d",
                           "0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4888",
@@ -11,7 +13,7 @@ class Account {
                          };
     }
 
-    initialize(address) {
+    initialize(address:any) {
         if (this.balances[address] == undefined) {
             this.balances[address] = INITIAL_BALANCE;
             this.addresses.push(address);
@@ -20,7 +22,7 @@ class Account {
     }
 
 
-    transfer(from, to, amount) {
+    transfer(from:string, to:string, amount:number) {
     
         this.initialize(from);
         this.initialize(to);
@@ -31,7 +33,7 @@ class Account {
     
     
     //send fee from transaction issuer to the block validator (leader)
-    transferFee(block, transaction) {
+    transferFee(block:any, transaction:any) {
 
         let amount = transaction.output.fee;
         let from = transaction.input.from;
@@ -40,28 +42,25 @@ class Account {
     
     }
 
-    increment(to,amount) {
+    increment(to:string,amount:number) {
         this.balances[to] += amount;
     }
 
-    decrement(from, amount) {
+    decrement(from:string, amount:number) {
         this.balances[from] -= amount;
     }
 
 
-    getBalance(address) {
+    getBalance(address:string) {
         this.initialize(address);
         return this.balances[address];
     }
 
 
-    updateAccounts(transaction) {
+    updateAccounts(transaction:any) {
         let amount = transaction.output.amount;
         let from = transaction.input.from;
         let to = transaction.output.to;
         this.transfer(from, to, amount);
     }
 }
-
-
-module.exports = Account;

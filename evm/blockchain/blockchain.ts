@@ -1,8 +1,8 @@
-const Block = require('./block');
-const Stake = require('./stake');
-const Account = require('./account');
-const Validators = require('./validator');
-const Wallet = require('../wallet/wallet');
+import {Block} from './block';
+import {Stake} from './stake';
+import {Account} from './account';
+import {Validators} from './validator';
+import {Wallet} from '../wallet/wallet';
 
 const TRANSACTION_TYPE = {
     transaction: "TRANSACTION",
@@ -11,7 +11,11 @@ const TRANSACTION_TYPE = {
     validator_fee: "VALIDATOR_FEE"
 };
 
-class Blockchain{
+export class Blockchain{
+    chain: any[];
+    stakes: any;
+    accounts: any;
+    validators: any;
     constructor(){
         this.chain = [Block.genesis()];
         this.stakes = new Stake();
@@ -28,7 +32,7 @@ class Blockchain{
     }*/
 
     //to add a new block to the local chain
-    addBlock(newblock){
+    addBlock(newblock:any){
    
 
         this.chain.push(newblock);
@@ -42,7 +46,7 @@ class Blockchain{
 
 
 
-    createBlock(data, wallet) {
+    createBlock(data:any, wallet:any) {
         
         
         let newblock = Block.createBlock(this.chain[this.chain.length-1], data, wallet);
@@ -52,7 +56,7 @@ class Blockchain{
     }
 
 
-    isValidBlock(block) {
+    isValidBlock(block:any) {
         const lastBlock = this.chain[this.chain.length-1];
 
         /**
@@ -86,9 +90,9 @@ class Blockchain{
     }
 
     //execute all the transactions in a received block before adding it to the local chain.
-    executeTransactions(block) {
+    executeTransactions(block:any) {
         
-        block.data.forEach(transaction => {
+        block.data.forEach((transaction: { type: any; input: { from: any; }; output: { amount: any; }; }) => {
             
             
             switch (transaction.type) {
@@ -137,7 +141,7 @@ class Blockchain{
 
     }
 
-    isValidChain(chain){
+    isValidChain(chain:any){
         if(JSON.stringify(chain[0]) !== JSON.stringify(Block.genesis())){
 
         return false;
@@ -155,7 +159,7 @@ class Blockchain{
 
 
 
-    replaceChain(newBlockchain){
+    replaceChain(newBlockchain:any){
         if (newBlockchain.chain.length <= this.chain.length){
             console.log("Received chain is not longer than the current chain \n----------------------------------------------------");
             return;
@@ -174,7 +178,7 @@ class Blockchain{
     }
 
 
-    getBalance(publicKey) {
+    getBalance(publicKey:any) {
         return this.accounts.getBalance(publicKey);
     }
 
@@ -187,5 +191,3 @@ class Blockchain{
 
 
 }
-
-module.exports = Blockchain;

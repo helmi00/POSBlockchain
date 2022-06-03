@@ -1,4 +1,6 @@
-class Stake {
+export class Stake {
+    stakersAddresses: string[];
+    stakedBalances: any
     constructor() {
         this.stakersAddresses = ["0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d"]; //first node to initialize the blockchain network will automatically be a validator and a staker with stake balance of 0
         this.stakedBalances = {"0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d":0};
@@ -8,7 +10,7 @@ class Stake {
 
 
 
-    initialize(address) {
+    initialize(address:any) {
         if (this.stakedBalances[address] == undefined) {
             this.stakedBalances[address] = 0;
             this.stakersAddresses.push(address);
@@ -16,17 +18,17 @@ class Stake {
     }
 
 
-    addStake(staker, amount) {
+    addStake(staker:any, amount:number) {
         this.initialize(staker);
         this.stakedBalances[staker] += amount;
     }
 
-    removeStake(staker, amount) {
+    removeStake(staker:any, amount:number) {
         this.stakedBalances[staker] -= amount;
     }
 
 
-    getStake(address) {
+    getStake(address:any) {
         this.initialize(address);
         return this.stakedBalances[address];
     }
@@ -42,10 +44,10 @@ class Stake {
         operation in order to ensure that every staker gets a chance.
         
         */
-    getMax(addresses) {
+    getMax(addresses:any) {
         let maxStake = -1;
         let leader = undefined;
-        addresses.forEach(address => {
+        addresses.forEach((address: any) => {
             if (this.getStake(address) > maxStake) { 
                 leader = address;
                 maxStake = this.getStake(address);
@@ -55,7 +57,7 @@ class Stake {
     }
 
 
-    updateStakers(transaction) {
+    updateStakers(transaction:any) {
         let amount = transaction.output.amount;
         let staker = transaction.input.from;
         if (transaction.type == "STAKE") {
@@ -83,5 +85,3 @@ class Stake {
 
 
 }
-
-module.exports = Stake;

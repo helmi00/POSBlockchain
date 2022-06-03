@@ -1,22 +1,24 @@
-const { TRANSACTION_THRESHOLD } = require("../config");
-const Transaction = require ("./transaction");
+import { TRANSACTION_THRESHOLD } from "../config";
+import {Transaction} from "./transaction";
 
 
 
-class TransactionPool {
+export class TransactionPool {
+    transactions= new Array()
+    transaction = new Array(Transaction)
     constructor(){
         this.transactions = [];
     }
 
 
-    addTransaction(transaction) {
+    addTransaction(transaction:any) {
         this.transactions.push(transaction);
         ///console.log("pool length", this.transactions.length);
       
     }
 
 
-    transactionExists(transaction) {
+    transactionExists(transaction:any) {
 
         let exists = false;
 
@@ -53,6 +55,3 @@ class TransactionPool {
     
 
 }
-
-
-module.exports = TransactionPool;

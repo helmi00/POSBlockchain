@@ -1,16 +1,19 @@
-const ChainUtil = require("../chain-Util");
-const Transaction = require("./transaction");
-const {INITIAL_BALANCE} = require("../config");
-const TransactionPool = require("./transaction-pool");
+import {genKeyPair} from "../chain-Util";
+import {Transaction} from "./transaction";
+import { INITIAL_BALANCE } from "../config";
+import {TransactionPool} from "./transaction-pool";
 //import { Address } from 'ethereumjs-util'
 //const {Address} = require('node_modules/etheremjs-util/dist.browser/Address.js')
 
 
 
-class Wallet {
-    constructor(secret){
+export class Wallet {
+    balance: any;
+    keyPair: any;
+    publicKey: string;
+    constructor(secret:any){
         this.balance = INITIAL_BALANCE;
-        this.keyPair = ChainUtil.genKeyPair(secret); //Old keypair algorithm using eddsa
+        this.keyPair = genKeyPair(secret); //Old keypair algorithm using eddsa
         this.publicKey = '0x'+this.keyPair.getPublic("hex"); //Old keypair algorithm using eddsa
         
         //new key using ethereum-util/address : not working due to some error not recognizing the module
@@ -29,12 +32,12 @@ class Wallet {
                 balance  : ${this.balance}`;
     }
 
-    sign(dataHash) {
+    sign(dataHash:any) {
         return this.keyPair.sign(dataHash).toHex();
     }
 
 
-    createTransaction(to, amount, type, blockchain, transactionPool) {
+    createTransaction(to:string, amount:number, type:any, blockchain:any, transactionPool:any) {
         this.balance = this.getBalance(blockchain);
 
         if (type=="TRANSACTION" && (amount > this.balance)) {
@@ -70,7 +73,7 @@ class Wallet {
         return transaction;
     }
 
-    getBalance(blockchain) {
+    getBalance(blockchain:any) {
         return blockchain.getBalance(this.publicKey);
     }
 
@@ -83,4 +86,3 @@ class Wallet {
     }
 }
 
-module.exports = Wallet;
