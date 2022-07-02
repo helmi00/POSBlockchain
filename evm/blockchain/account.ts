@@ -63,4 +63,10 @@ export class Account {
         let to = transaction.output.to;
         this.transfer(from, to, amount);
     }
+
+    addAcount(pk:any){
+        this.addresses.push(pk);
+        this.balances[pk]=INITIAL_BALANCE
+        console.log("balence  ",this.balances)
+    }
 }

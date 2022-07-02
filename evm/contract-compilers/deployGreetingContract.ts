@@ -26,7 +26,7 @@ export async function deployGreetingContract(
     types: ['string', 'address[]', 'uint256[]'],
     values: [greeting, addresses, values],
   });
-  console.log('deployment data ', data);
+  //console.log('deployment data ', data);
   const txData = {
     data,
     nonce: await getAccountNonce(vm, senderPrivateKey),

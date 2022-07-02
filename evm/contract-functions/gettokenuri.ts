@@ -12,7 +12,7 @@ export async function gettokenuri(vm: VM, contractAddress: Address, caller: Addr
     origin: caller, // The tx.origin is also the caller here
     data: Buffer.from(sigHash.slice(2) + AbiCoder.encode(['uint256'],[id]).slice(2), 'hex'),
   })
-//console.log("buffer",greetResult.execResult.returnValue)
+console.log(" get uri nft",(greetResult.execResult.returnValue).toString())
   if (greetResult.execResult.exceptionError) {
     throw greetResult.execResult.exceptionError
   }

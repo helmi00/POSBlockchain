@@ -23,6 +23,6 @@ export function compileNftContracts() {
   if (compilationFailed) {
     return undefined;
   }
-  console.log('compilation output: ', nftOutput.contracts['contracts/nft.sol'].MyNFT.abi);
+  //console.log('compilation output: ', nftOutput.contracts['contracts/nft.sol'].MyNFT.abi);
   return nftOutput;
 }

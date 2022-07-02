@@ -80,7 +80,7 @@ contract MyNFT is ERC721URIStorage, Ownable {
     /* Returns all unsold market items */
     function fetchMarketItems(uint256 id) public view returns ( uint256 tokenId , address owner  ,address seller,uint256 price ,bool sold ) {
       
-            if (idToMarketItem[id].owner == address(this)) {
+            if (idToMarketItem[id].owner == address(this)||idToMarketItem[id].sold==false ) {
                 MarketItem storage currentItem = idToMarketItem[id];
                 return (currentItem.tokenId,currentItem.owner,currentItem.seller,currentItem.price,currentItem.sold);
             }

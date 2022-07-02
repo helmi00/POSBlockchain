@@ -16,7 +16,7 @@ export async function deployNFTContract(
     types: ['string'],
     values: [greeting],
   });
-  console.log('deployment data ', data);
+  //console.log('deployment data ', data);
   const txData = {
     data,
     nonce: await getAccountNonce(vm, senderPrivateKey),

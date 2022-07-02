@@ -27,6 +27,6 @@ export function compileGreetingContract() {
   if (compilationFailed) {
     return undefined;
   }
-  console.log('compilation output: ', output.contracts['contracts/Greeter.sol'].Greeter.abi);
+  //console.log('compilation output: ', output.contracts['contracts/Greeter.sol'].Greeter.abi);
   return output;
 }

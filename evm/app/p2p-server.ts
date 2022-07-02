@@ -5,12 +5,13 @@ let P2P_PORT:any
 if( process.argv[3]==undefined){
     if(process.env.P2P_PORT== undefined){
         P2P_PORT= 5001
-    }else P2P_PORT=process.env.P2P_PORT== undefined
+    }else P2P_PORT=process.env.P2P_PORT
 }else P2P_PORT =process.argv[3]
 const MESSAGE_TYPE = {
     chain: 'CHAIN',
     block: 'BLOCK',
     transaction: 'TRANSACTION',
+    vm:"vm",
     emtpy: '' 
 }
 
@@ -25,15 +26,14 @@ export class P2pserver{
     transactionPool: any;
     sockets: any[];
     wallet: any;
-    vm:VM
     lastTransactionFromLastAddedBlocId: string;
     
-    constructor(blockchain:any, transactionPool:any, wallet:any,vm:VM){
+    constructor(blockchain ?:any, transactionPool ?:any, wallet ?:any){
         this.blockchain = blockchain;
         this.transactionPool = transactionPool;
         this.sockets = [];
         this.wallet = wallet;
-        this.vm=vm
+        
         
         this.lastTransactionFromLastAddedBlocId = "0";
         /**we need this variable because when the last transaction that fills the transaction pool to its threshhold arrives,
@@ -49,14 +49,13 @@ export class P2pserver{
     listen(){
         //create the p2p server with port as argument
         const server = new WebSocketServer({ port: P2P_PORT });
-
+        console.log("peer listen " ,P2P_PORT)
         // event listener and a callback function for any new connection.
         // on any new connection, the current instance wil send the current chain to the newly connected peer.
         server.on('connection',socket => this.connectSocket(socket));
 
         //to connect the peers that we have specified
         this.connectToPeers();
-
         console.log(`Listening for peer to peer connection on port : ${P2P_PORT}`);
     }
 
@@ -103,8 +102,8 @@ export class P2pserver{
         //on receiving a message, execute a callback function
         socket.on('message', (message: string) => {
             const data = JSON.parse(message);
-            console.log("received data from peer :", data.type);
-            console.log(Util.inspect(data,false, null, true));
+            //console.log("received data from peer :", data.type);
+            //console.log(Util.inspect(data,false, null, true));
             switch(data.type) {
                 case MESSAGE_TYPE.chain:
                     console.table(data.chain);
@@ -153,6 +152,11 @@ export class P2pserver{
                     this.createBlockIfLeaderAndIfThreshholdReached();
                     
                     break;
+
+                  /*   case MESSAGE_TYPE.vm: 
+                    this.broadcastVM(this.vm.copy())
+                    console.log("broadcas vm ok");
+                break; */
                 /* case emtpy: 
                     console.log("empty message, nothing to treat");
                 break; */
@@ -182,8 +186,9 @@ export class P2pserver{
                 
                 let block = this.blockchain.createBlock(
                     this.transactionPool.transactions,
-                    this.wallet
+                    this.wallet,this.blockchain.getlastvm(),this.blockchain.getlastopcode()
                 );
+               // console.log("getlast evm",this.blockchain.getlastvm().stateManager)
                 console.log("new Block created from transaction pool:");
                 console.table(block);
                 //this.blockchain.isValidBlock(block, this.wallet);
@@ -208,7 +213,9 @@ export class P2pserver{
             accounts: this.blockchain.accounts,
             validators: this.blockchain.validators,
             stakes: this.blockchain.stakes,
-        vm:this.vm}));
+            vm:this.blockchain.getlastvm()
+            
+        }));
     }
 
 
@@ -231,6 +238,22 @@ export class P2pserver{
         
     }
 
+     //sends a vm to a single socket.
+     sendVM(socket:any,vm:VM) {
+        socket.send(JSON.stringify({
+            type: MESSAGE_TYPE.transaction,
+            transaction: new VM(vm)
+            })
+        );
+        
+    }
+ //broadcasts a vm to all connected sockets
+ broadcastVM(vm:VM) {
+    this.sockets.forEach(socket => {
+        this.sendTransaction(socket,vm);
+    });
+    console.log("vm broadcasted once to all connected sockets\n-----------------------------------------------------------------------");
+}
 
     //broadcasts a transaction to all connected sockets
     broadcastTransaction(transaction:any) {
@@ -258,12 +281,9 @@ export class P2pserver{
         });
         console.log("Block broadcasted once to all the connected sockets/peers\n-----------------------------------------------")
     }
-    getvm(){
-        return this.vm.copy()
-    }
-    setvm(vm:VM){
-        this.vm=vm.copy()
-    }
 
-
+    getbroadcasvm():VM{
+        return this.blockchain.getlastvm()
+    }
+   
 }

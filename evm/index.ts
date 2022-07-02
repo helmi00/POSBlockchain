@@ -4,7 +4,8 @@ import { join } from 'path'
 import { readFileSync,createReadStream } from 'fs'
 import { Address,Account } from 'ethereumjs-util'
 import VM from '@ethereumjs/vm'
-import { insertAccount } from './helpers/account-utils'
+import { DefaultStateManager } from '@ethereumjs/vm/dist/state';
+import { insertAccount,keyPair } from './helpers/account-utils'
 //import { calculate2 } from './contract-functions/calculate2';
 import { getMsgSender } from './contract-functions/getMsgSender';
 import { addNFT } from './contract-functions/addNFT';
@@ -26,14 +27,16 @@ import { updateprice } from './contract-functions/updateprice';
 import { updateforselle } from './contract-functions/updateforselle';
 import { Seleitem } from './contract-functions/Selleitem';
 import { gettokenuri } from './contract-functions/gettokenuri';
-import axios, {Axios} from 'axios'
+import axios, {AxiosRequestConfig, AxiosResponse} from 'axios'
 import { BN } from 'ethereumjs-util/dist/externals'
 import {Blockchain} from './blockchain/blockchain';
 import {P2pserver} from './app/p2p-server';
 import {Wallet} from './wallet/wallet';
 import {TransactionPool} from './wallet/transaction-pool';
+
 import { VALIDATOR_FEE } from './config';
 import {Block} from './blockchain/block';
+import { json } from 'body-parser';
 const solc = require('solc')
 const cors = require('cors')
 const Util = require("util");
@@ -56,6 +59,7 @@ export let importedAccountPK: Buffer
 let evmAddresses : Map<string,string> = new Map<string,string>() // addresses in web server => addresses in evm
 let balances : Map<Address, Number> = new Map<Address,Number>() //addresses in evm => balances
 let accountPk:any
+
 
 /**
  * This function creates the input for the Solidity compiler.
@@ -142,29 +146,27 @@ function populateAccounts(importedBalances: any){
   console.log("populated evm addresses: ", evmAddresses)
 }
 
-async function updatevm(vm:VM,p2p:P2pserver) {
-  console.log("*************************",vm.stateManager.getContractCode(accountAddress))
-  vm=await VM.create(p2pserver.getvm())
-  await insertAccount(vm, accountAddress)
-  return vm
-}
 
-async function launchEVM() {
+
+async function launchEVM(pk:any) {
   
 
-   accountPk = Buffer.from(
+  /*  accountPk = Buffer.from(
     'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',
     'hex'
-  )
+  ) */
 
    
   
 
 
   //importedAccountPK = Buffer.from(walletAddress,'hex')
-  accountAddress =Address.fromPrivateKey(accountPk)
+  accountPk = Buffer.from(pk.toString().slice(2),'hex')
 
-  console.log('Account: ', accountAddress.toString())
+  console.log("pk",pk.toString())
+  accountAddress =Address.fromPrivateKey(accountPk)
+ // console.log('Accountpk: ', accountPk.toString())
+ // console.log('Account: ', accountAddress.toString())
   await insertAccount(vm, accountAddress)
 
   
@@ -211,7 +213,17 @@ let vm1:any
 //main
 console.log('Compiling...')
 
-  solcOutput = compileGreetingContract() 
+ let dscache:any
+
+//evm express server creation
+const evm_server = express();
+evm_server.use(express.json());
+//evm_server.use(cors({origin: 'http://localhost:3001'}))
+const router = express.Router({strict:true});
+evm_server.use('/test', router);
+
+
+ solcOutput = compileGreetingContract() 
   if (solcOutput === undefined) {
     throw new Error('Compilation failed')
   } else {
@@ -223,14 +235,6 @@ console.log('Compiling...')
   } else {
     console.log('Compiled the contract')
   }
-
-//evm express server creation
-const evm_server = express();
-evm_server.use(express.json());
-//evm_server.use(cors({origin: 'http://localhost:3001'}))
-const router = express.Router({strict:true});
-evm_server.use('/test', router);
-vm = new VM()
 //test authent to pinata
 pinata.testAuthentication().then((result:any) => {
   //handle successful authentication here
@@ -241,42 +245,75 @@ pinata.testAuthentication().then((result:any) => {
 });
 const EVM_PORT = process.env.HTTP_PORT || process.argv[2] || 4001;
 //create a new Blockchain instance
-const blockchain = new Blockchain();
-console.log("blockchain",blockchain)
-  launchEVM().then(async(result)=>{
-    console.log("result launch vm",result)
-  }).catch((err)=>{
-    console.log("err launch vm",err)
-  })
+let blockchain = new Blockchain();
+
+
+
+ 
 //create a new transaction pool which will be later decentralized and synchronized using the peer to peer server
 const transactionPool = new TransactionPool();
 console.log("transactionPool",transactionPool)
 const secret = "I am the first leader/node" //Date.now() is used to create a random string for secret
-const wallet = new Wallet(secret); 
+let wallet = new Wallet(secret); 
 
 //console.log("created new wallet for this node with the balance of", wallet.getBalance(blockchain));
 //console.log("and with public key: ", wallet.getPublicKey());
-console.log(wallet.toString());
-
-//passing blockchain as a dependency for peer connection
-const p2pserver = new P2pserver(blockchain, transactionPool, wallet,vm);
-console.log("p2pserver",p2pserver)
-
-updatevm(vm,p2pserver).then((res:any)=>{
-  vm=res;
-  console.log("**************ok")
-}).catch((err:any)=>{
-  console.log("updateevm error",err)
-})
+//console.log("*******wallet",wallet.toString());
+if(EVM_PORT==4001){
  
+  vm =new VM(blockchain.chain[blockchain.chain.length-1].vm)
+ 
+  launchEVM(wallet.getPublicKey()).then(async(result)=>{
+   
+   // console.log("******vm ", vm.stateManager)
+    
+}).catch((err)=>{
+  console.log("err launch vm",err)
+})
+
+
+}
+//passing blockchain as a dependency for peer connection
+let p2pserver = new P2pserver(blockchain, transactionPool, wallet);
+
+
+ 
+/* let accountPk1 = Buffer.from(
+  'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd110',
+  'hex'
+)
+
+//importedAccountPK = Buffer.from(walletAddress,'hex')
+let accountAddress1 =Address.fromPrivateKey(accountPk1)
+
+console.log('Account: ', accountAddress1.toString()) */
+
 //starts the p2pserver
 p2pserver.listen(); 
- 
+if(EVM_PORT!=4001)
+{
+  const secret = "I am the first leader/node" +Date.now() //is used to create a random string for secret
+ wallet = new Wallet(secret); 
+blockchain.accounts.addAcount(wallet.getPublicKey())
+//console.log("created new wallet for this node with the balance of", wallet.getBalance(blockchain));
+//console.log("and with public key: ", wallet.getPublicKey());
+console.log("*******wallet",wallet.toString());
+  vm=new VM(blockchain.chain[blockchain.chain.length-1].vm)
+  //console.log("opcode vm",blockchain.chain[blockchain.chain.length-1].vm._opcodes)
+  accountPk = Buffer.from(wallet.getPublicKey().toString().slice(2),'hex')
+
+  //console.log("pk",wallet.getPublicKey().toString().slice(2))
+  accountAddress =Address.fromPrivateKey(accountPk)
+  //console.log('Accountpk: ', accountPk.toString())
+  //console.log('Account: ', accountAddress.toString())
+  //console.log("****vm 2", vm.stateManager)
+}
+ //console.log("*****************p2p ",blockchain.chain[blockchain.chain.length-1].vm)
 var s = evm_server.listen(EVM_PORT, () => {
   console.log("evm server is listening on port ", EVM_PORT);
 })
- 
- 
+//console.log("*************blockchain",p2pserver.getbroadcasvm().stateManager)
+
 
 
 
@@ -357,10 +394,10 @@ var s = evm_server.listen(EVM_PORT, () => {
 }) */
 
 router.post("/mintNFT",async (req:Request,res:Response)=>{
-let tokenId=req.body.tokenuri;
-let price = req.body.price;
-
-/* const form = formidable({ multiples: true });
+/* let tokenId=req.body.tokenuri;
+let price = req.body.price; */
+if (EVM_PORT == 4001){
+const form = formidable({ multiples: true });
 
 form.parse(req, (err:any, fields:any, files:any) => {
   if (err) {
@@ -384,7 +421,10 @@ const options = {
  pinata.pinFileToIPFS(readableStreamForFile, options).then(async(result:any) => {
     //handle results here
     console.log(result.IpfsHash);
-    let id =await addNFT(vm,importedAccountPK,contractAddressNft,result.IpfsHash,fields.price)
+    let id =await addNFT(vm,accountPk,contractAddressNft,result.IpfsHash,fields.price)
+    let ds = new DefaultStateManager(vm.StateManager)
+await ds.checkpoint()
+dscache = ds._cache._cache
     res.status(200).json({ "id":id });
 console.log("nft id",id)
 }).catch((err:any) => {
@@ -392,28 +432,33 @@ console.log("nft id",id)
     console.log(err);
 });
   
-}); */
-await addNFT(vm,accountPk,contractAddressNft,tokenId,price).then((id:any)=>{
-  p2pserver.setvm(vm)
-  res.status(200).json({ "id":id });
-  
-  // sendvm()
-}).catch((error:any)=>{
-  res.status(500).send(error)
-  console.log("ws add nft error",error)
-})
-    
+});
+
+/* await insertAccount(vm, Address.fromPrivateKey(Buffer.from(
+  'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',
+  'hex'
+))) */
+
+
+}
+
 })
 
 router.get("/getallitem",async(req:Request,res:Response)=>{
   //console.log("abi",solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchMarketItems", solcNftOutput)])
- let Items= new Array()
- let all_item = await getallitem(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("getallitem", solcNftOutput)])
+ let Items:{tokenId:number,owner:String,Seller:String,price:number,sold:String}[]=[]
+
+ /* await insertAccount(vm,Address.fromPrivateKey(Buffer.from(
+  'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',  'hex'
+))) */
+ let all_item = await getallitem(vm,Address.fromString("0xeb6c46c32887aa4e8f51e0f19ad106b1ec448904"),accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("getallitem", solcNftOutput)])
   for(var i =0 ; i<all_item;i++){
-  await fetchMarketItems(vm, contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchMarketItems", solcNftOutput)], i+1).then((resul:any)=>{
-    console.log("id result",resul.tokenId)
+  await fetchMarketItems(vm, Address.fromString("0xeb6c46c32887aa4e8f51e0f19ad106b1ec448904"),accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchMarketItems", solcNftOutput)], i+1).then((resul:any)=>{
+   
     if(resul.owner!="0x0000000000000000000000000000000000000000")
-    {Items.push(resul)}
+    {Items.push({"tokenId":parseInt(resul.tokenId),"owner":resul.owner,"Seller":resul.Seller,"price":parseInt(resul.price),"sold":resul.sold})
+  
+  }
     //res.status(200).json({"tokenId":resul.tokenId,"seller":resul.Seller,"owner":resul.owner,"price":resul.price,"sold":resul.sold});
   }).catch((err)=>{
     console.log("id err",err)
@@ -429,7 +474,16 @@ router.get("/getallitem",async(req:Request,res:Response)=>{
 router.post("/createMarketSale",async(req:Request,resp:Response)=>{
   let tokenId= req.body.tokenId;
   let price = req.body.price;
-  await createMarketSale(vm,contractAddressNft,importedAccountPK,tokenId,price).then((result:any)=>{
+  let pk =req.body.pk
+ let accountPk = Buffer.from(pk.toString().slice(2),'hex')
+
+  console.log("pk",pk.toString().slice(2))
+  let accountAddress =Address.fromPrivateKey(accountPk)
+  console.log('Accountpk: ', accountPk.toString())
+  console.log('Account: ', accountAddress.toString())
+  await insertAccount(vm, accountAddress)
+
+  await createMarketSale(vm,contractAddressNft,accountPk,tokenId,price).then((result:any)=>{
     resp.status(200).json({"state":"ok"})
   }).catch((err:any)=>{
     console.error("errur createMarketSale",err)
@@ -439,14 +493,20 @@ router.post("/createMarketSale",async(req:Request,resp:Response)=>{
 })
 
 router.get("/fetchownerItems",async(req:Request,res:Response)=>{
-  let Items= new Array()
+  let pk=req.body.pk
+  let accountPk = Buffer.from(pk.toString().slice(2),'hex')
+
+  console.log("pk",pk.toString().slice(2))
+ let  accountAddress =Address.fromPrivateKey(accountPk)
+  await insertAccount(vm, accountAddress)
+  let Items:{tokenId:number,owner:String,Seller:String,price:number,sold:String}[]=[]
 await getallitem(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("getallitem", solcNftOutput)]).then(async(owner_item:any)=>{
   console.log(" nb owner item",parseInt(owner_item))
   for(var i =0 ; i<owner_item;i++){
   await fetchownerItems(vm, contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("fetchownerItems", solcNftOutput)], i+1).then((resul:any)=>{
-    console.log("owner result",resul.tokenId)
+    //console.log("owner result",resul.tokenId)
     if(resul.owner!="0x0000000000000000000000000000000000000000")
-    {Items.push(resul)}
+    {Items.push({"tokenId":parseInt(resul.tokenId),"owner":resul.owner,"Seller":resul.Seller,"price":parseInt(resul.price),"sold":resul.sold})}
     //res.status(200).json({"tokenId":resul.tokenId,"seller":resul.Seller,"owner":resul.owner,"price":resul.price,"sold":resul.sold});
   }).catch((err)=>{
     console.log("id err",err)
@@ -466,7 +526,13 @@ await getallitem(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['c
 router.post("/updateprice",async(req:Request,res:Response)=>{
   let tokenId = req.body.tokenId
   let price = req.body.price
-  await updateprice(vm,contractAddressNft,importedAccountPK,tokenId,price).then((result:any)=>{
+  let pk=req.body.pk
+  let accountPk = Buffer.from(pk.toString().slice(2),'hex')
+
+  console.log("pk",pk.toString().slice(2))
+ let  accountAddress =Address.fromPrivateKey(accountPk)
+  await insertAccount(vm, accountAddress)
+  await updateprice(vm,contractAddressNft,accountPk,tokenId,price).then((result:any)=>{
     console.log("update price",result)
     if(result){
       res.status(200).send(true)
@@ -480,8 +546,14 @@ router.post("/updateprice",async(req:Request,res:Response)=>{
 
 router.post("/updateforselle",async(req:Request,res:Response)=>{
   let tokenId = req.body.tokenId
-  await updateforselle(vm,contractAddressNft,importedAccountPK,tokenId).then((result:any)=>{
-   res.status(200).send(result)
+  let pk=req.body.pk
+  let accountPk = Buffer.from(pk.toString().slice(2),'hex')
+
+  console.log("pk",pk.toString().slice(2))
+ let  accountAddress =Address.fromPrivateKey(accountPk)
+  await insertAccount(vm, accountAddress)
+  await updateforselle(vm,contractAddressNft,accountPk,tokenId).then((result:any)=>{
+   res.status(200).send("updated for selle")
   }).catch((err:any)=>{
     console.log("error updateforselle",err)
     res.status(500).send(err)
@@ -492,9 +564,12 @@ router.post("/updateforselle",async(req:Request,res:Response)=>{
 router.post("/Seleitem",async(req:Request,res:Response)=>{
   let tokenId = req.body.tokenId
   let price = req.body.price
-  await Seleitem(vm,contractAddressNft,importedAccountPK,tokenId,price).then((result:any)=>{
-    console.log("selle item ok ")
-    res.status(200)
+  let _account =req.body.account
+  let account_= Buffer.from(_account.slice(2),'hex')
+  insertAccount(vm,Address.fromPrivateKey(account_))
+  await Seleitem(vm,contractAddressNft,account_,tokenId,price).then((result:any)=>{
+   // console.log("selle item ok ")
+    res.status(200).send("selle item ok ")
   }).catch((err:any)=>{
     console.log("error sell item",err)
     res.status(500).send(err)
@@ -505,7 +580,46 @@ router.post("/Seleitem",async(req:Request,res:Response)=>{
 
 router.get("/gettokenuri",async(req:Request,res:Response)=>{
   let tokenId = req.body.tokenId
-  await gettokenuri(vm,contractAddressNft,accountAddress,solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("gettokenuri", solcNftOutput)],tokenId).then((result:any)=>{
+  let cna=req.body.cna
+  
+ if(EVM_PORT!=4001){
+ // vm=await VM.create(blockchain.chain[blockchain.chain.length-1].vm.stateManager)
+ //console.log("opcode vm get",blockchain.chain[blockchain.chain.length-1].vm._opcodes)
+ //vm = await VM.create(blockchain.chain[blockchain.chain.length-1].opcode)
+ //console.log("vm after opcode run ",blockchain.chain[blockchain.chain.length-1].opcode.root.value.val.data)
+ 
+ console.log("vm ", vm.stateManager)
+  await vm.stateManager.checkpoint()
+   let bu=Buffer.from(await (blockchain.chain[blockchain.chain.length-1].dstate).data)
+   //console.log("buf",bu)
+   await vm.stateManager.putContractCode(Address.fromString(cna),bu)
+   //console.log("get contract code after",await vm.stateManager.getContractCode(Address.fromString(cna)))
+   await vm.stateManager.commit()
+   
+   let ds = new DefaultStateManager(vm.StateManager)
+   await ds.checkpoint()
+   //console.log("****************************evm cache befor",ds._cache._cache)
+   ds._cache.put(Address.fromString(cna),Account.fromAccountData(blockchain.chain[blockchain.chain.length-1].opcode.root.value.val.data))
+   //console.log("get contract code",await vm.stateManager.getContractCode(Address.fromString(cna)))
+   await ds.commit()
+   //console.log("get contract storage",await vm.stateManager.getContractStorage(Address.fromString(cna),Buffer.from(cna.slice(1),"hex")))
+   /* console.log("****************************evm",await vm.stateManager.getContractCode(Address.fromString(cna)))
+  insertAccount(vm,Address.fromPrivateKey(Buffer.from(
+    'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',
+    'hex'
+  ))) */
+   //console.log("****************************evm cache after",ds._cache._cache)
+   console.log("******vm ", vm.stateManager)
+ }
+ 
+  /* vm=(blockchain.getlastvm()).copy()
+  console.log("sate",blockchain.getlastvm().stateManager) */
+  //await vm.stateManager.putAccount(accountAddress1, account)
+  
+  await gettokenuri(vm,Address.fromString(cna),Address.fromPrivateKey(Buffer.from(
+    'e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109',
+    'hex'
+  )),solcNftOutput.contracts['contracts/nft.sol'].MyNFT.abi[abi_index("gettokenuri", solcNftOutput)],tokenId).then((result:any)=>{
     console.log("token uri ",result)
     res.status(200).send(result)
   }).catch((err:any)=>{
@@ -516,27 +630,27 @@ router.get("/gettokenuri",async(req:Request,res:Response)=>{
 
 
 
+
 //Exposed APIs
 
 //api to get the blocks
 evm_server.get('/blocks', (req,res)=>{
-    let l :number=blockchain.chain.length
-    console.log("block length",blockchain.chain[l-1].timestamp)
+   
   res.json(blockchain.chain);
 
 });
 
 
 //api to add blocks
-evm_server.post('/mine',(req,res)=>{
+evm_server.post('/mine',async(req,res)=>{
   console.log("received request to add a new block");
-
-  const block = blockchain.createBlock(req.body.data, wallet);
-  
+  let ds = new DefaultStateManager(vm.StateManager)
+  const block = blockchain.createBlock(req.body.data, wallet,vm.copy(),await vm.stateManager.getContractCode(contractAddressNft),dscache);
+  console.log("****************************vm ",ds._cache._cache)
+  console.log("_getStorageTrie(",await ds._getStorageTrie(contractAddressNft))
   console.log("new block added ",block);
 
   p2pserver.syncChain();
- 
   res.redirect('/blocks'); 
 
 });
@@ -594,7 +708,204 @@ evm_server.get('/stakers', (req,res) => {
 evm_server.get('/leader', (req, res) => { 
   res.json({leaderAddress: blockchain.getLeader()})
 })
+evm_server.post('/wallet',(req,res)=>{
+  const wallet_secret=req.body.wallet;
+  wallet = new Wallet(wallet_secret)
+  blockchain.Addacount(wallet.getPublicKey())
+  console.log("new wallet",wallet)
+  res.status(200).json({"wallet": wallet.publicKey})
+})
 
+evm_server.get("/allnft" ,async(req:Request,res:Response)=>{
+  if(EVM_PORT !=4001){
+   await  axios.get("http://localhost:4001/test/getallitem").then((data_nft:AxiosResponse)=>{
+      console.log("allnft",typeof(data_nft.data.Items[0].tokenId))
+      res.status(200).send(data_nft.data)
+    }).catch((err:any)=>{
+      console.log("err get all nft ",err)
+    })
+  }
+})
+evm_server.get("/getowneritem" ,async(req:Request,res:Response)=>{
+  if(EVM_PORT !=4001){
+    
+   await  axios.get("http://localhost:4001/test/fetchownerItems",{"data":{"pk":wallet.getPublicKey()}}).then((data_nft:AxiosResponse)=>{
+      console.log("allnft",data_nft.data)
+      res.status(200).send(data_nft.data)
+    }).catch((err:any)=>{
+      console.log("err get all nft ",err)
+    })
+  }
+})
+evm_server.post("/buyitem" ,async(req:Request,res:Response)=>{
+  if(EVM_PORT !=4001){
+  let _tokenId= req.body.tokenId;
+  let _price = req.body.price;
+  
+  let exisit = false;
+  await  axios.get("http://localhost:4001/test/getallitem").then(async(data_nft:AxiosResponse)=>{
+    console.log("allnft",data_nft.data)
+    
+    for(let i=0;i<=data_nft.data.Items.length-1;i++){
+     if( data_nft.data.Items[i].tokenId==_tokenId && data_nft.data.Items[i].price ==_price ){
+    exisit=true
+     }
+    }
+  }).catch((err:any)=>{
+   
+    console.log("err get all nft ",err)
+  })
+
+  if(exisit!=false){
+    console.log("received request to make a transaction of type ", "TRANSACTION");
+  
+    const transaction = wallet.createTransaction("0x51344f39b80865174166521e16442d0ea545771a36c126cd20eecd99eadc4a9d", _price, "TRANSACTION", blockchain, transactionPool);
+    
+    if(transaction != undefined){    //meaning that transation has actually been created, meaning that the amount is within balance value
+        
+        console.log("created and added transaction to local pool");
+        p2pserver.broadcastTransaction(transaction); //broadcast the newly made transaction to all the local transaction pools of the peers
+        p2pserver.createBlockIfLeaderAndIfThreshholdReached();
+        await  axios.post("http://localhost:4001/test/createMarketSale",{"tokenId":_tokenId,"price":_price,"pk":wallet.getPublicKey()}).then((data_nft:AxiosResponse)=>{
+          //console.log("allnft",data_nft.data)
+          res.redirect("/transactions");
+          //res.status(200).send(data_nft.data)
+        }).catch((err:any)=>{
+          console.log("err get all nft ",err)
+        })
+    
+    } else {
+    
+        console.log("transaction is not created nor broadcasted\n-----------------------------------------------------------------");
+        res.status(404).send("sold not enaf")
+    }
+    
+    
+  }else res.status(404).send("NFT NOT FOUND")
+
+   
+  }
+})
+
+evm_server.post("/updatetosell" ,async(req:Request,res:Response)=>{
+  if(EVM_PORT !=4001){
+    let _tokenId = req.body.tokenId
+    let exist =false
+    await  axios.get("http://localhost:4001/test/fetchownerItems",{"data":{"pk":wallet.getPublicKey()}}).then(async(data_nft:AxiosResponse)=>{
+      console.log("tokenid",data_nft.data.Items[0].tokenId)
+    for(let i=0;i<=data_nft.data.Items.length-1;i++){
+      if(data_nft.data.Items[i].tokenId ==_tokenId){
+        exist=true
+      }
+    }  
+    console.log("tokenid",exist)
+    
+    }).catch((err:any)=>{
+      console.log("err get all nft ",err)
+    })
+
+if(exist!=false){
+      await  axios.post("http://localhost:4001/test/updateforselle",{"tokenId":_tokenId,"pk":wallet.getPublicKey()}).then((data_nft:AxiosResponse)=>{
+      //console.log("allnft",data_nft.data)
+      res.status(200).send(data_nft.data)
+    }).catch((err:any)=>{
+      console.log("err get all nft ",err)
+    })
+    }else res.status(404).send("NOT FOUND")
+
+
+   
+  }
+})
+
+evm_server.post("/update_price" ,async(req:Request,res:Response)=>{
+  if(EVM_PORT !=4001){
+    let _tokenId = req.body.tokenId
+    let new_price = req.body.newprice
+    let exist =false
+    await  axios.get("http://localhost:4001/test/fetchownerItems",{"data":{"pk":wallet.getPublicKey()}}).then(async(data_nft:AxiosResponse)=>{
+      console.log("tokenid",data_nft.data.Items[0].tokenId)
+    for(let i=0;i<=data_nft.data.Items.length-1;i++){
+      if(data_nft.data.Items[i].tokenId ==_tokenId){
+        exist=true
+      }
+    }  
+    console.log("tokenid",exist)
+    
+    }).catch((err:any)=>{
+      console.log("err get all nft ",err)
+    })
+
+if(exist!=false){
+      await  axios.post("http://localhost:4001/test/updateprice",{"tokenId":_tokenId,"price":new_price,"pk":wallet.getPublicKey()}).then((data_nft:AxiosResponse)=>{
+      //console.log("allnft",data_nft.data)
+      res.status(200).send(data_nft.data)
+    }).catch((err:any)=>{
+      console.log("err get all nft ",err)
+    })
+    }else res.status(404).send("NOT FOUND")
+
+
+   
+  }
+})
+
+
+evm_server.post("/buyitem_p" ,async(req:Request,res:Response)=>{
+  if(EVM_PORT !=4001){
+  let _tokenId= req.body.tokenId;
+  let _price = req.body.price;
+  let owner_account= req.body.owner
+  let owner_item=""
+  let exisit = false;
+  await  axios.get("http://localhost:4001/test/getallitem").then(async(data_nft:AxiosResponse)=>{
+    console.log("allnft",data_nft.data)
+    
+    for(let i=0;i<=data_nft.data.Items.length-1;i++){
+     if( data_nft.data.Items[i].tokenId==_tokenId && data_nft.data.Items[i].price ==_price ){
+    exisit=true
+    owner_item = data_nft.data.Items[i].owner
+     }
+    }
+  }).catch((err:any)=>{
+   
+    console.log("err get all nft ",err)
+  })
+
+  if(exisit!=false){
+    let accountPkowner = Buffer.from(owner_account.toString().slice(2),'hex')
+  let accountAddressowner =Address.fromPrivateKey(accountPkowner)
+console.log(accountAddressowner.toString(), "  ",owner_item)
+  if(accountAddressowner.toString()==owner_item.toLowerCase()){
+    console.log("received request to make a transaction of type ", "TRANSACTION");
+  
+    const transaction = wallet.createTransaction(owner_account, _price, "TRANSACTION", blockchain, transactionPool);
+    
+    if(transaction != undefined){    //meaning that transation has actually been created, meaning that the amount is within balance value
+        
+        console.log("created and added transaction to local pool");
+        p2pserver.broadcastTransaction(transaction); //broadcast the newly made transaction to all the local transaction pools of the peers
+        p2pserver.createBlockIfLeaderAndIfThreshholdReached();
+        await  axios.post("http://localhost:4001/test/Seleitem",{"tokenId":_tokenId,"price":_price,"account":wallet.getPublicKey()}).then((data_nft:AxiosResponse)=>{
+          //console.log("allnft",data_nft.data)
+          res.redirect("/transactions");
+          //res.status(200).send(data_nft.data)
+        }).catch((err:any)=>{
+          console.log("err get all nft ",err)
+        })
+    
+    } else {
+    
+        console.log("transaction is not created nor broadcasted\n-----------------------------------------------------------------");
+        res.status(404).send("sold not enaf")
+    }
+  }
+    
+  }else res.status(404).send("NFT NOT FOUND")
+
+   
+  }
+})
 
 
 /* process.on('SIGINT', () => {

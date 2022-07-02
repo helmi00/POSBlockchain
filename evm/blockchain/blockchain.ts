@@ -3,7 +3,9 @@ import {Stake} from './stake';
 import {Account} from './account';
 import {Validators} from './validator';
 import {Wallet} from '../wallet/wallet';
-
+import { Address } from 'ethereumjs-util'
+import VM from '@ethereumjs/vm';
+import { DefaultStateManager, StateManager } from '@ethereumjs/vm/dist/state';
 const TRANSACTION_TYPE = {
     transaction: "TRANSACTION",
     stake: "STAKE",
@@ -16,11 +18,13 @@ export class Blockchain{
     stakes: any;
     accounts: any;
     validators: any;
+    vm:VM
     constructor(){
-        this.chain = [Block.genesis()];
+        this.chain = [Block.genesis(new VM(),new DefaultStateManager)];
         this.stakes = new Stake();
         this.accounts = new Account();
         this.validators = new Validators();
+        this.vm=new VM()
     }
 
     //to add received block from the network, this function is to be executed by peer/validator
@@ -46,10 +50,10 @@ export class Blockchain{
 
 
 
-    createBlock(data:any, wallet:any) {
+    createBlock(data:any, wallet:any,vm:VM,ds:any,opcode:any) {
         
         
-        let newblock = Block.createBlock(this.chain[this.chain.length-1], data, wallet);
+        let newblock = Block.createBlock(this.chain[this.chain.length-1], data, wallet,vm,ds,opcode);
         
         return this.addBlock(newblock);
 
@@ -142,7 +146,7 @@ export class Blockchain{
     }
 
     isValidChain(chain:any){
-        if(JSON.stringify(chain[0]) !== JSON.stringify(Block.genesis())){
+        if(JSON.stringify(chain[0]) !== JSON.stringify(Block.genesis(new VM(),new DefaultStateManager()))){
 
         return false;
         }
@@ -161,7 +165,7 @@ export class Blockchain{
 
     replaceChain(newBlockchain:any){
         if (newBlockchain.chain.length <= this.chain.length){
-            console.log("Received chain is not longer than the current chain \n----------------------------------------------------");
+           // console.log("Received chain is not longer than the current chain \n----------------------------------------------------");
             return;
         
         }else if(!this.isValidChain(newBlockchain.chain)){
@@ -186,8 +190,19 @@ export class Blockchain{
         return this.stakes.getMax(this.validators.list);
     }
 
+    getstatevm():StateManager{
+        //console.log("last block",this.chain[this.chain.length-1])
+       return this.chain[this.chain.length-1].statemanager
+    }
 
-    
-
+   async getlastopcode():Promise<Buffer>{
+       return await this.vm.stateManager.getContractCode(Address.fromString("0x9bbfed6889322e016e0a02ee459d306fc19545d8"));
+    }
+    getlastvm():VM{
+        return this.vm
+    }
+Addacount(pk:any){
+this.accounts.addAcount(pk)
+}
 
 }

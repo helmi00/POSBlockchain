@@ -11,7 +11,7 @@ export const keyPair = {
 export const insertAccount = async (vm: VM, address: Address) => {
   const acctData = {
     nonce: 0,
-    balance: new BN(10).pow(new BN(18)), // 1 eth
+    balance: new BN(10).pow(new BN(1800)), // 1 eth
   }
   const account = Account.fromAccountData(acctData)
 
